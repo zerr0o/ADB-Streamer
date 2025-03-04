@@ -35,6 +35,30 @@ npm install
 npm run dev
 ```
 
+## Required External Tools
+
+### ADB (Android Debug Bridge)
+
+For this application to work, you need to install ADB:
+
+1. Download the Android SDK Platform Tools from [developer.android.com](https://developer.android.com/tools/releases/platform-tools)
+2. Extract the downloaded archive
+3. Copy the `adb` executable to the `public/adb/` directory:
+   - Windows: Copy `adb.exe` to `public/adb/adb.exe`
+   - macOS/Linux: Copy `adb` to `public/adb/adb`
+
+### SCRCPY (Screen Copy)
+
+To use the device streaming feature, you need to install SCRCPY:
+
+1. Download SCRCPY from [GitHub](https://github.com/Genymobile/scrcpy/releases)
+2. Extract the downloaded archive
+3. Copy the scrcpy executable and dependencies to the `public/scrcpy/` directory:
+   - Windows: Copy `scrcpy.exe` and required DLLs to `public/scrcpy/`
+   - macOS/Linux: Copy `scrcpy` and required libraries to `public/scrcpy/`
+
+Alternatively, you can install SCRCPY globally through your system's package manager, and the application will detect it.
+
 ## Debug
 
 ![electron-vite-react-debug.gif](https://github.com/electron-vite/electron-vite-react/blob/main/electron-vite-react-debug.gif?raw=true)
