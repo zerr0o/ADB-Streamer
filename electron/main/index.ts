@@ -1,3 +1,4 @@
+// Polyfill for crypto.getRandomValues in Node.jsif (typeof globalThis.crypto === 'undefined') {  globalThis.crypto = require('crypto');}if (typeof globalThis.crypto.getRandomValues === 'undefined') {  globalThis.crypto.getRandomValues = (arr) => require('crypto').randomFillSync(arr);}
 import { app, BrowserWindow, shell, ipcMain, screen , globalShortcut } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
