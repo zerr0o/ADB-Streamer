@@ -1,103 +1,131 @@
-# electron-vite-vue
+# ADB-Streamer
 
-🥳 Really simple `Electron` + `Vue` + `Vite` boilerplate.
+Une application desktop pour gérer et diffuser l'écran d'appareils Android en utilisant ADB et SCRCPY.
 
-<!-- [![awesome-vite](https://awesome.re/mentioned-badge.svg)](https://github.com/vitejs/awesome-vite) -->
-<!-- [![Netlify Status](https://api.netlify.com/api/v1/badges/ae3863e3-1aec-4eb1-8f9f-1890af56929d/deploy-status)](https://app.netlify.com/sites/electron-vite/deploys) -->
-<!-- [![GitHub license](https://img.shields.io/github/license/caoxiemeihao/electron-vite-vue)](https://github.com/electron-vite/electron-vite-vue/blob/main/LICENSE) -->
-<!-- [![GitHub stars](https://img.shields.io/github/stars/caoxiemeihao/electron-vite-vue?color=fa6470)](https://github.com/electron-vite/electron-vite-vue) -->
-<!-- [![GitHub forks](https://img.shields.io/github/forks/caoxiemeihao/electron-vite-vue)](https://github.com/electron-vite/electron-vite-vue) -->
-[![GitHub Build](https://github.com/electron-vite/electron-vite-vue/actions/workflows/build.yml/badge.svg)](https://github.com/electron-vite/electron-vite-vue/actions/workflows/build.yml)
-[![GitHub Discord](https://img.shields.io/badge/chat-discord-blue?logo=discord)](https://discord.gg/sRqjYpEAUK)
+## Fonctionnalités
 
-## Features
+📱 **Gestion d'appareils Android**
+- Connexion à des appareils via USB ou Wi-Fi (TCP/IP)
+- Listing automatique des appareils connectés
+- Affichage des informations (niveau de batterie, dimensions d'écran)
+- Conversion des connexions USB vers TCP/IP pour une utilisation sans fil
 
-📦 Out of the box  
-🎯 Based on the official [template-vue-ts](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-vue-ts), less invasive  
-🌱 Extensible, really simple directory structure  
-💪 Support using Node.js API in Electron-Renderer  
-🔩 Support C/C++ native addons  
-🖥 It's easy to implement multiple windows  
+🎮 **Streaming d'écran**
+- Diffusion en temps réel de l'écran des appareils Android
+- Configuration des paramètres de streaming (résolution, bitrate, framerate)
+- Contrôle à distance des appareils
+- Gestion de plusieurs streams simultanés
 
-## Quick Setup
+📊 **Interface intuitive**
+- Interface moderne avec Vue 3 et Vuetify
+- Gestion multi-appareils simplifiée
+- Sélection multiple d'appareils pour des actions groupées
+
+## Installation
 
 ```sh
-# clone the project
-git clone https://github.com/electron-vite/electron-vite-vue.git
+# Cloner le projet
+git clone https://github.com/votre-utilisateur/ADB-Streamer.git
 
-# enter the project directory
-cd electron-vite-vue
+# Accéder au répertoire du projet
+cd ADB-Streamer
 
-# install dependency
+# Installer les dépendances
 npm install
 
-# develop
+# Démarrer l'application en mode développement
 npm run dev
+
+# Créer un build pour production
+npm run build
 ```
 
-## Required External Tools
+## Outils externes requis
 
-### ADB (Android Debug Bridge)
+### ADB et SCRCPY
 
-For this application to work, you need to install ADB:
+Pour fonctionner correctement, cette application utilise deux outils externes :
 
-1. Download the Android SDK Platform Tools from [developer.android.com](https://developer.android.com/tools/releases/platform-tools)
-2. Extract the downloaded archive
-3. Copy the `adb` executable to the `public/adb/` directory:
-   - Windows: Copy `adb.exe` to `public/adb/adb.exe`
-   - macOS/Linux: Copy `adb` to `public/adb/adb`
+1. **ADB (Android Debug Bridge)** : Outil de ligne de commande permettant de communiquer avec les appareils Android
+2. **SCRCPY (Screen Copy)** : Outil permettant la diffusion et le contrôle à distance des écrans d'appareils Android
 
-### SCRCPY (Screen Copy)
+Les deux outils doivent être installés dans le répertoire `public/scrcpy/` :
 
-To use the device streaming feature, you need to install SCRCPY:
+1. Téléchargez ADB depuis [Android SDK Platform Tools](https://developer.android.com/tools/releases/platform-tools)
+2. Téléchargez SCRCPY depuis [GitHub](https://github.com/Genymobile/scrcpy/releases)
+3. Extrayez les fichiers téléchargés
+4. Copiez les fichiers nécessaires dans le dossier `public/scrcpy/` :
+   - Windows : `adb.exe`, `scrcpy.exe` et toutes les DLL requises
+   - macOS/Linux : `adb`, `scrcpy` et les bibliothèques requises
 
-1. Download SCRCPY from [GitHub](https://github.com/Genymobile/scrcpy/releases)
-2. Extract the downloaded archive
-3. Copy the scrcpy executable and dependencies to the `public/scrcpy/` directory:
-   - Windows: Copy `scrcpy.exe` and required DLLs to `public/scrcpy/`
-   - macOS/Linux: Copy `scrcpy` and required libraries to `public/scrcpy/`
+Alternativement, vous pouvez installer SCRCPY globalement via le gestionnaire de paquets de votre système, l'application le détectera automatiquement.
 
-Alternatively, you can install SCRCPY globally through your system's package manager, and the application will detect it.
+## Utilisation
 
-## Debug
+### Connexion des appareils
 
-![electron-vite-react-debug.gif](https://github.com/electron-vite/electron-vite-react/blob/main/electron-vite-react-debug.gif?raw=true)
+1. Connectez votre appareil Android en USB ou via Wi-Fi
+2. L'application détectera automatiquement les appareils connectés
+3. Pour une connexion sans fil :
+   - Connectez d'abord l'appareil en USB
+   - Utilisez la fonction "Convertir en TCP/IP" dans l'interface d'administration
+   - Une fois connecté en TCP/IP, vous pouvez débrancher le câble USB
 
-## Directory
+### Streaming d'écran
 
-```diff
-+ ├─┬ electron
-+ │ ├─┬ main
-+ │ │ └── index.ts    entry of Electron-Main
-+ │ └─┬ preload
-+ │   └── index.ts    entry of Preload-Scripts
-  ├─┬ src
-  │ └── main.ts       entry of Electron-Renderer
-  ├── index.html
-  ├── package.json
-  └── vite.config.ts
+1. Sélectionnez un ou plusieurs appareils dans la liste
+2. Cliquez sur le bouton "Stream" dans la barre supérieure
+3. Configurez les options de streaming si nécessaire
+4. Le streaming démarre dans des fenêtres dédiées
+
+### Raccourcis clavier
+
+- `Échap` : Arrête tous les streams actifs
+
+## Structure du projet
+
+```
+├── electron/               # Code Electron (processus principal)
+│   ├── main/               # Point d'entrée du processus principal
+│   └── preload/            # Scripts de pré-chargement
+├── public/                 # Ressources statiques
+│   └── scrcpy/             # Binaires ADB et SCRCPY
+├── src/                    # Code source de l'application
+│   ├── assets/             # Images et ressources
+│   ├── components/         # Composants Vue
+│   │   ├── admin/          # Composants d'administration
+│   │   ├── device/         # Composants de gestion d'appareils
+│   │   └── streaming/      # Composants de streaming
+│   ├── services/           # Services d'accès aux fonctionnalités
+│   │   ├── AdbService.ts   # Service pour ADB
+│   │   └── ScrcpyService.ts # Service pour SCRCPY
+│   ├── store/              # Gestion d'état
+│   └── types/              # Définitions de types TypeScript
+└── ...
 ```
 
-<!--
-## Be aware
+## Technologies utilisées
 
-🚨 By default, this template integrates Node.js in the Renderer process. If you don't need it, you just remove the option below. [Because it will modify the default config of Vite](https://github.com/electron-vite/vite-plugin-electron-renderer#config-presets-opinionated).
+- **Electron** : Framework pour applications desktop multi-plateformes
+- **Vue.js 3** : Framework JavaScript pour l'interface utilisateur
+- **TypeScript** : Pour le typage statique du code
+- **Vuetify** : Bibliothèque de composants UI
+- **Node.js** : Pour l'interaction avec le système d'exploitation
 
-```diff
-# vite.config.ts
+## Développement
 
-export default {
-  plugins: [
--   // Use Node.js API in the Renderer-process
--   renderer({
--     nodeIntegration: true,
--   }),
-  ],
-}
-```
--->
+### Prérequis
 
-## FAQ
+- Node.js 16+
+- npm ou yarn
+- Git
 
-- [C/C++ addons, Node.js modules - Pre-Bundling](https://github.com/electron-vite/vite-plugin-electron-renderer#dependency-pre-bundling)
-- [dependencies vs devDependencies](https://github.com/electron-vite/vite-plugin-electron-renderer#dependencies-vs-devdependencies)
+### Scripts disponibles
+
+- `npm run dev` : Lance l'application en mode développement
+- `npm run build` : Crée un build pour production
+- `npm run preview` : Prévisualisation du build
+
+## Licence
+
+MIT
