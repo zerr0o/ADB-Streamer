@@ -625,6 +625,7 @@ ipcMain.handle('scrcpy:start-stream', async (_, deviceId: string, options: Strea
   if (!checkAdbInstalled()) {
     return false
   }
+  console.log(`Starting scrcpy for ${deviceId} with options:`, options)
   return await startStream(deviceId, options)
 })
 
