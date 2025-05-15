@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     "composite": true,
+    "target": "ES2015",
+    "downlevelIteration": true,
     "module": "ESNext",
     "moduleResolution": "Node",
     "resolveJsonModule": true,

@@ -1,4 +1,10 @@
-// Polyfill for crypto.getRandomValues in Node.jsif (typeof globalThis.crypto === 'undefined') {  globalThis.crypto = require('crypto');}if (typeof globalThis.crypto.getRandomValues === 'undefined') {  globalThis.crypto.getRandomValues = (arr) => require('crypto').randomFillSync(arr);}
+// Polyfill for crypto.getRandomValues in Node.js
+if (typeof globalThis.crypto === 'undefined') {
+  globalThis.crypto = require('crypto');
+}
+if (typeof globalThis.crypto.getRandomValues === 'undefined') {
+  globalThis.crypto.getRandomValues = (arr) => require('crypto').randomFillSync(arr);
+}
 import { app, BrowserWindow, shell, ipcMain, screen , globalShortcut } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -537,6 +543,9 @@ async function startStream(deviceId: string, options: StreamOptions): Promise<bo
     // Log the command
     console.log(`Starting scrcpy for ${deviceId} with args:`, args.join(' '))
     
+    //log full command
+    console.log(`**** Full command:`, `${SCRCPY_PATH} ${args.join(' ')} ****`)
+
     // Spawn the process
     const process = spawn(SCRCPY_PATH, args, {
       detached: false,
@@ -616,7 +625,6 @@ ipcMain.handle('scrcpy:start-stream', async (_, deviceId: string, options: Strea
   if (!checkAdbInstalled()) {
     return false
   }
-  
   return await startStream(deviceId, options)
 })
 

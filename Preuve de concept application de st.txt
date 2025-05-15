@@ -1,0 +1,11 @@
+Preuve de concept application de streaming de casque via ADB wifi
+
+- Prise en charge Meta Quest 2,3,3s et Pico G3, Pico 4.
+- Liste d'appareil ADB avec Alias paramétrable.
+- Auto lancement et connexion à l'ADB wifi via USB.
+- Lancement et répartition du streaming via screencopy jusqu'à 4 casques.
+- affichage du niveau de batterie ( casque uniquement )
+
+Remarque :
+Application preuve de contexte avec interface provisoire uniquement destinée à tester la stabilité et la mise en miroir de plusieurs casques simultanément. 
+Les tests seront effectués par VR academy et permettront d'établir la faisabilité de l'application finale ( environ 10/15j supplémentaires nécessaire pour une V1 ). 
