@@ -1,9 +1,11 @@
 // Polyfill for crypto.getRandomValues in Node.js
+import crypto from 'crypto';
+
 if (typeof globalThis.crypto === 'undefined') {
-  globalThis.crypto = require('crypto');
+  globalThis.crypto = crypto as any;
 }
 if (typeof globalThis.crypto.getRandomValues === 'undefined') {
-  globalThis.crypto.getRandomValues = (arr) => require('crypto').randomFillSync(arr);
+  globalThis.crypto.getRandomValues = (arr: any) => crypto.randomFillSync(arr);
 }
 import { app, BrowserWindow, shell, ipcMain, screen , globalShortcut } from 'electron'
 import { createRequire } from 'node:module'
@@ -436,182 +438,7 @@ ipcMain.handle('adb:usb-to-tcpip', async (_, deviceId: string) => {
   return await convertUsbToTcpIp(deviceId)
 })
 
-// ========== SCRCPY Functions ==========
-
-// Check if scrcpy is available
-async function isScrcpyInstalled(): Promise<boolean> {
-  try {
-    // First check our bundled version
-    if (fs.existsSync(SCRCPY_PATH)) {
-      return true
-    }
-    
-    // Then check PATH
-    const { stdout } = await execAsync('scrcpy --version')
-    console.log('scrcpy version:', stdout)
-    return stdout.includes('scrcpy')
-  } catch (error) {
-    console.error('Error checking scrcpy:', error)
-    return false
-  }
-}
-
-// Convert stream options to command line arguments
-function optionsToArgs(options: StreamOptions): string[] {
-  const args: string[] = []
-  
-  if (options.width && options.height) {
-    args.push('--window-width', options.width.toString())
-    args.push('--window-height', options.height.toString())
-  }
-  
-  if (options.x !== undefined && options.y !== undefined) {
-    args.push('--window-x', options.x.toString())
-    args.push('--window-y', options.y.toString())
-  }
-
-  if (options.maxFps) {
-    args.push('--max-fps', options.maxFps)
-  }
-  else
-  {
-    args.push('--max-fps', '25')
-  }
-  
-  if (options.borderless || options.noBorder) {
-    args.push('--window-borderless')
-  }
-  
-  if (options.alwaysOnTop) {
-    args.push('--always-on-top')
-  }
-  
-  if (options.fullscreen) {
-    args.push('--fullscreen')
-  }
-  
-  if (options.maxSize) {
-    args.push('--max-size', options.maxSize.toString())
-  }
-  
-  if (options.bitrate) {
-    args.push('--video-bit-rate', options.bitrate.toString() + 'K')
-  }
-  
-  if (options.frameRate) {
-    args.push('--max-fps', options.frameRate.toString())
-  }
-  
-  if (options.crop) {
-    args.push('--crop', options.crop)
-  }
-  
-  if (options.noControl) {
-    args.push('--no-control')
-  }
-  
-  if (options.displayId !== undefined) {
-    args.push('--display', options.displayId.toString())
-  }
-  
-  
-  return args
-}
-
-// Start a scrcpy stream for a device
-async function startStream(deviceId: string, options: StreamOptions): Promise<boolean> {
-  try {
-    // Check if we already have a stream for this device
-    if (activeStreams.has(deviceId)) {
-      console.log(`Stream already running for device ${deviceId}`)
-      return true
-    }
-    
-    // Check if scrcpy is available
-    const scrcpyAvailable = await isScrcpyInstalled()
-    if (!scrcpyAvailable) {
-      console.error('scrcpy is not installed')
-      return false
-    }
-    
-    // Prepare arguments
-    const args = optionsToArgs(options)
-    
-    // Add the device ID
-    args.push('--serial', deviceId)
-    
-    // Log the command
-    console.log(`Starting scrcpy for ${deviceId} with args:`, args.join(' '))
-    
-    //log full command
-    console.log(`**** Full command:`, `${SCRCPY_PATH} ${args.join(' ')} ****`)
-
-    // Spawn the process
-    const process = spawn(SCRCPY_PATH, args, {
-      detached: false,
-      shell: false
-    })
-    
-    // Handle process events
-    process.on('error', (error) => {
-      console.error(`Error starting scrcpy for ${deviceId}:`, error)
-      activeStreams.delete(deviceId)
-    })
-    
-    process.on('close', (code) => {
-      console.log(`scrcpy process for ${deviceId} exited with code ${code}`)
-      activeStreams.delete(deviceId)
-    })
-    
-    // Store the process
-    activeStreams.set(deviceId, process)
-    
-    return true
-  } catch (error) {
-    console.error(`Failed to start scrcpy for ${deviceId}:`, error)
-    return false
-  }
-}
-
-// Stop a scrcpy stream for a device
-async function stopStream(deviceId: string): Promise<boolean> {
-  try {
-    const process = activeStreams.get(deviceId)
-    if (!process) {
-      console.log(`No active stream for device ${deviceId}`)
-      return true
-    }
-    
-    // Kill the process
-    process.kill()
-    activeStreams.delete(deviceId)
-    
-    return true
-  } catch (error) {
-    console.error(`Failed to stop scrcpy for ${deviceId}:`, error)
-    return false
-  }
-}
-
-// Stop all scrcpy streams
-async function stopAllStreams(): Promise<boolean> {
-  try {
-    for (const [deviceId, process] of activeStreams.entries()) {
-      try {
-        process.kill()
-        console.log(`Stopped stream for ${deviceId}`)
-      } catch (error) {
-        console.error(`Error stopping stream for ${deviceId}:`, error)
-      }
-    }
-    
-    activeStreams.clear()
-    return true
-  } catch (error) {
-    console.error('Failed to stop all streams:', error)
-    return false
-  }
-}
+import { isScrcpyInstalled, optionsToArgs, startStream, stopStream, stopAllStreams } from './scrcpy';
 
 // ========== IPC Handlers for SCRCPY ==========
 
