@@ -94,13 +94,13 @@ export class StreamingService {
       const grid = this.calculateGrid(deviceIds.length)
       const cells = this.calculateCellPositions(grid.rows, grid.cols, screenDimensions)
       
-      // Start streams for each device
-      const promises = deviceIds.map((deviceId, index) => {
-        if (index >= cells.length) return Promise.resolve(false)
+      let anyStarted = false;
+      for (let index = 0; index < deviceIds.length; index++) {
+        if (index >= cells.length) break;
 
-        const device : Device | undefined = deviceStore.findDeviceByAnyId(deviceId)
-        
-        const cell = cells[index]
+        const deviceId = deviceIds[index];
+        const device: Device | undefined = deviceStore.findDeviceByAnyId(deviceId);
+        const cell = cells[index];
         const options: StreamOptions = {
           x: cell.x,
           y: cell.y,
@@ -111,16 +111,14 @@ export class StreamingService {
           alwaysOnTop: true,
           noControl: deviceIds.length > 1, // Disable control in mosaic mode (except for single device)
           maxSize: 0, // No limit for multi-screen,
-          crop : device ? this.calculateOptimalCrop(device.screenWidth as number, device.screenHeight as number) : `${screenDimensions.width }:${screenDimensions.height}:0:0`
-          //crop : "1600:900:2017:510"
-          
-        }
-        
-        return this.startDeviceStream(deviceId, options)
-      })
-      
-      const results = await Promise.all(promises)
-      return results.some(result => result)
+          crop: device ? this.calculateOptimalCrop(device.screenWidth as number, device.screenHeight as number) : `${screenDimensions.width}:${screenDimensions.height}:0:0`
+        };
+        const result = await this.startDeviceStream(deviceId, options);
+        if (result) anyStarted = true;
+        // Add a delay between launches to avoid resource conflicts
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+      }
+      return anyStarted;
     } catch (error) {
       console.error('Error starting mosaic streaming:', error)
       return false
