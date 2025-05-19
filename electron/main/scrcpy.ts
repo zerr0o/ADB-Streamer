@@ -1,7 +1,6 @@
 import { ChildProcess, spawn } from 'child_process';
 import path from 'node:path';
 import { StreamOptions } from '../../src/services/ScrcpyService';
-import { ipcMain } from 'electron';
 
 // Fonction pour obtenir dynamiquement le chemin SCRCPY
 function getScrcpyPath(): string {

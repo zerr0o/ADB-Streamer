@@ -9,3 +9,10 @@ Preuve de concept application de streaming de casque via ADB wifi
 Remarque :
 Application preuve de contexte avec interface provisoire uniquement destinée à tester la stabilité et la mise en miroir de plusieurs casques simultanément. 
 Les tests seront effectués par VR academy et permettront d'établir la faisabilité de l'application finale ( environ 10/15j supplémentaires nécessaire pour une V1 ). 
+
+
+
+
+E:\Documents\GitHub\ADB-Streamer\public\scrcpy\scrcpy.exe --window-width 1280 --window-height 2880 --window-x 1280 --window-y 0 --max-fps 25 --window-borderless --always-on-top --crop 838:1718:1056:971 --no-control --serial 192.168.1.41:5555
+
+E:\Documents\GitHub\ADB-Streamer\public\scrcpy\scrcpy.exe --window-width 1280 --window-height 2880 --window-x 0 --window-y 0 --max-fps 25 --window-borderless --always-on-top --crop 1600:900:2015:509 --no-control --serial 192.168.1.39:5555

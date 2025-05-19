@@ -17,8 +17,6 @@ import { promisify } from 'util'
 import fs from 'fs'
 import { Device } from '../../src/types/device'
 import { StreamOptions } from '../../src/services/ScrcpyService'
-import { c } from 'vite/dist/node/types.d-aGj9QkWt'
-import { get } from 'node:http'
 
 const execAsync = promisify(exec)
 const require = createRequire(import.meta.url)
@@ -37,20 +35,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 process.env.APP_ROOT = path.join(__dirname, '../..')
 
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
-export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
+export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')  
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
-  ? path.join(process.env.APP_ROOT, 'public')
-  : RENDERER_DIST
+
+
+const publicPath =
+  process.env.NODE_ENV === 'development'
+    ? path.join(__dirname, '../../public')          // dev : dossier du projet
+    : path.join(process.resourcesPath, 'public');   // prod : resources/public
+
+process.env.VITE_PUBLIC = publicPath
 
 // ADB binary path
-const ADB_PATH = path.join(process.env.VITE_PUBLIC, 'scrcpy', 
-  process.platform === 'win32' ? 'adb.exe' : 'adb')
+const ADB_PATH = path.join(process.env.VITE_PUBLIC, 
+  process.platform === 'win32' ? 'scrcpy/adb.exe' : 'scrcpy/adb')
 
-// SCRCPY binary path - can be customized from the app settings
-const SCRCPY_PATH = path.join(process.env.VITE_PUBLIC, 'scrcpy', 
-  process.platform === 'win32' ? 'scrcpy.exe' : 'scrcpy')
+console.log(ADB_PATH)
 
 // Store active scrcpy processes
 const activeStreams = new Map<string, ChildProcess>()
@@ -329,7 +330,7 @@ const checkAdbInstalled = () => {
         type: 'error',
         title: 'ADB Not Found',
         message: 'ADB binary is required but not found',
-        detail: `Please download ADB from the Android SDK Platform Tools and place it at: ${ADB_PATH}`,
+        detail: `Place it at: ${ADB_PATH}`,
         buttons: ['OK']
       })
     }

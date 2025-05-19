@@ -1,12 +1,21 @@
 // @see https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "com.adb-streamer",
   "asar": true,
-  "productName": "YourAppName",
+  "productName": "ADB Streamer",
   "directories": {
     "output": "release/${version}"
   },
+    "extraFiles": [
+    {
+      "from": "public",
+      "to": "resources/public",
+      "filter": [
+        "**/*"
+      ]
+    }
+  ],
   "files": [
     "dist",
     "dist-electron"

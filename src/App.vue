@@ -14,7 +14,7 @@ const initError = ref<string | null>(null)
 
 // Navigation items
 const navItems = [
-  { title: 'Devices', icon: 'mdi-cellphone-link', value: 'devices' },
+  { title: 'Devices', icon: 'mdi-virtual-reality', value: 'devices' },
   { title: 'Administration', icon: 'mdi-cog', value: 'admin' },
   { title: 'Streaming', icon: 'mdi-cast', value: 'streaming' }
 ]
@@ -87,10 +87,18 @@ onMounted(async () => {
     <v-navigation-drawer v-model="drawer" temporary>
       <v-list>
         <v-list-item
-          prepend-avatar="/logo.svg"
           title="ADB Streamer"
-          subtitle="Manage your Android devices"
-        ></v-list-item>
+
+          class="pb-2"
+        >
+        <template v-slot:prepend>
+          <v-icon color="red" size="40">mdi-lightning-bolt</v-icon>
+        </template>
+        <template v-slot:subtitle>
+          <p class="pb-1">Manage VR Devices</p>
+        </template>
+
+        </v-list-item>
       </v-list>
 
       <v-divider></v-divider>
@@ -102,7 +110,6 @@ onMounted(async () => {
           :value="item.value"
           :title="item.title"
           :prepend-icon="item.icon"
-          :disabled="item.disabled"
           :active="currentView === item.value"
           @click="setView(item.value)"
         ></v-list-item>
@@ -115,10 +122,10 @@ onMounted(async () => {
             prepend-icon="mdi-github"
             variant="tonal"
             color="grey"
-            href="https://github.com/electron-vite/electron-vite-vue"
+            href="https://docs.google.com/document/d/1AV3D0fRl9Zzo5ZYlD_8oDttCqM2L3TX34vh-72rlazs/edit?usp=sharing"
             target="_blank"
           >
-            GitHub
+            Notice
           </v-btn>
         </div>
       </template>

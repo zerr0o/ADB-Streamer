@@ -1,0 +1,26 @@
+{
+    // On repart de la configuration « dev »
+    "extends": "./tsconfig.json",
+  
+    // Spécifique au build de types
+    "compilerOptions": {
+      /* --- production type build ----------------------------------------- */
+      "noEmit": false,              // on veut cette fois un résultat sur disque
+      "declaration": true,          // génère les .d.ts
+      "emitDeclarationOnly": true,  // pas de .js, juste les types
+      "outDir": "dist/types",       // dossier écrit par le build
+      "composite": true,            // nécessaire pour vue-tsc + project-references
+      /* ------------------------------------------------------------------- */
+  
+      /* Tu peux hériter des autres options (strict, target, lib, …)       */
+      /* qui restent dans tsconfig.json.                                   */
+      /* Ajoute ici des overrides si besoin, ex. "skipLibCheck": false     */
+    },
+  
+    /* On compile seulement le code source de l’app                        */
+    "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
+  
+    /* On ignore les fichiers de test ou de storybook éventuels            */
+    "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/**/*.stories.ts"]
+  }
+  

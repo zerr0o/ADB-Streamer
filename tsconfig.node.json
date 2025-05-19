@@ -6,7 +6,8 @@
     "module": "ESNext",
     "moduleResolution": "Node",
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "declarationDir": "./dist-electron/node_declarations"
   },
   "include": ["vite.config.ts", "package.json", "electron", "src/types"]
 }
