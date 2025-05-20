@@ -27,7 +27,10 @@ const createSerializableDevice = (device: Device): Device => {
     batteryLevel: device.batteryLevel,
     model: device.model,
     screenWidth: device.screenWidth,
-    screenHeight: device.screenHeight
+    screenHeight: device.screenHeight,
+    isTcpIp: device.isTcpIp,
+    tcpConnected: device.tcpConnected,
+    usbConnected: device.usbConnected
   }
 }
 
@@ -120,8 +123,16 @@ export const deviceStore = {
       // Certains peuvent être rapportés comme connectés par ADB alors qu'ils ne le sont plus réellement
       const verifiedDevices = [];
       for (const device of adbDevices) {
+        // Déterminer si c'est un device USB ou TCP/IP
+        const isTcpDevice = device.id.includes(':');
+        
+        // Initialiser les nouveaux champs de statut
+        device.isTcpIp = isTcpDevice;
+        device.usbConnected = !isTcpDevice && device.status === 'connected';
+        device.tcpConnected = isTcpDevice && device.status === 'connected';
+        
         // Si c'est un device TCP/IP, vérifier qu'on peut vraiment l'atteindre
-        if (device.id.includes(':') && device.status === 'connected') {
+        if (isTcpDevice && device.status === 'connected') {
           try {
             // On utilise getBatteryLevel comme test pratique de connectivité
             // Si cette commande réussit, le device est vraiment joignable
@@ -130,15 +141,19 @@ export const deviceStore = {
             
             if (batteryLevel === -1) {
               console.log(`Device TCP/IP ${device.id} marqué connecté par ADB mais non joignable (échec getBatteryLevel) - marqué déconnecté`);
-              device.status = 'disconnected' as const;
+              device.tcpConnected = false;
+              device.status = 'disconnected';
             } else {
               console.log(`Device TCP/IP ${device.id} confirmé joignable (batteryLevel: ${batteryLevel})`);
               // Stocker le niveau de batterie obtenu
               device.batteryLevel = batteryLevel;
+              device.tcpConnected = true;
+              device.status = 'connected';
             }
           } catch (err) {
             console.log(`Erreur lors de la vérification de connectivité pour ${device.id} - marqué déconnecté`, err);
-            device.status = 'disconnected' as const;
+            device.tcpConnected = false;
+            device.status = 'disconnected';
           }
         }
         verifiedDevices.push(device);
@@ -277,17 +292,30 @@ export const deviceStore = {
         if (savedDevice) {
           // If it exists, keep saved properties (like name) but update status, battery and IP
           finalDevice = {
-            ...savedDevice,                 // Preserve saved properties, especially custom name
-            status: device.status,          // Update status from ADB
-            batteryLevel: finalDevice.batteryLevel,   // Update battery from ADB
-            ip: finalDevice.ip || savedDevice.ip, // Use new IP if available, otherwise keep saved IP
-            model: finalDevice.model || savedDevice.model, // Update model if not saved
-            screenWidth: finalDevice.screenWidth || savedDevice.screenWidth,
-            screenHeight: finalDevice.screenHeight || savedDevice.screenHeight,
-            // Keep track of previous ID if it exists
+            ...savedDevice, // Start with the full state of the saved device (contains custom name, persisted ID)
+            
+            // Update with properties from the current 'device' (which is the processed ADB entry)
+            status: device.status, 
+            batteryLevel: device.batteryLevel, // 'device.batteryLevel' was set earlier in the loop
+            ip: device.ip || savedDevice.ip,   // 'device.ip' might have been set if auto-converted
+            model: device.model || savedDevice.model, // 'device.model' is from ADB properties
+            screenWidth: device.screenWidth,    // 'device.screenWidth' from ADB properties
+            screenHeight: device.screenHeight,  // 'device.screenHeight' from ADB properties
+            
+            // Merge connection flags:
+            // This ensures if either saved state OR current ADB entry shows a connection, it's true.
+            isTcpIp: savedDevice.isTcpIp || device.isTcpIp, 
+            usbConnected: savedDevice.usbConnected || device.usbConnected,
+            tcpConnected: savedDevice.tcpConnected || device.tcpConnected,
+            
+            // Ensure the primary ID and name remain from savedDevice (custom name is important)
+            id: savedDevice.id,
+            name: savedDevice.name,
+
+            // Previous ID logic:
             previousId: savedDevice.previousId || 
                        (device.id !== savedDevice.id ? device.id : undefined)
-          }
+          };
           
           // If IDs differ and this is not already tracked by previousId
           if (device.id !== savedDevice.id && savedDevice.previousId !== device.id) {
@@ -356,7 +384,7 @@ export const deviceStore = {
           }
           // Si c'est un device TCP/IP, vérifier si un USB avec previousId existe et est connecté
           if (device.id.includes(':') && device.previousId) {
-            const usbDevice = mergedDevices.find(d => d.id === device.previousId && d.status === 'connected');
+            const usbDevice = mergedDevices.find(d => d.id === device.previousId && d.usbConnected === true);
             if (usbDevice) {
               // Relancer la conversion TCP/IP automatiquement
               console.log(`TCP/IP device ${device.id} absent, USB ${usbDevice.id} connecté : relance automatique du switch TCP/IP.`);
@@ -518,42 +546,6 @@ export const deviceStore = {
       }
     } catch (error) {
       console.error(`Error removing device ${deviceId} from database:`, error)
-      state.value.error = `Error removing device: ${error instanceof Error ? error.message : error}`
-    }
-  },
-  
-  // Update a device's display name
-  async updateDeviceName(deviceId: string, newName: string) {
-    try {
-      // Update in current devices
-      const device = state.value.devices.find(d => d.id === deviceId)
-      if (device) {
-        device.name = newName
-        
-        // Also update in saved devices cache and database
-        if (savedDevicesCache.value.has(deviceId)) {
-          const savedDevice = savedDevicesCache.value.get(deviceId)!
-          const updatedDevice = {
-            ...savedDevice,
-            name: newName
-          }
-          
-          // Update in-memory cache
-          savedDevicesCache.value.set(deviceId, updatedDevice)
-          
-          // Update serializable copy in database
-          await DatabaseService.saveDevice(createSerializableDevice(updatedDevice))
-        }
-      }
-    } catch (error) {
-      console.error(`Error updating device ${deviceId} name in database:`, error)
-      state.value.error = `Error updating device name: ${error instanceof Error ? error.message : error}`
-    }
-  },
-  
-  // Manually convert a USB device to TCP/IP mode
-  async convertDeviceToTcpIp(deviceId: string): Promise<{ success: boolean, message: string }> {
-    state.value.loading = true
     state.value.error = null
     
     try {
@@ -685,8 +677,134 @@ export const deviceStore = {
     } finally {
       state.value.loading = false
     }
-  },
+  }
+   },
+
   
+
+  // Update the name of a device
+  async updateDeviceName(deviceId: string, newName: string): Promise<void> {
+    try {
+      let deviceToUpdate: Device | undefined = this.getDeviceById(deviceId); // Check live devices first
+
+      if (deviceToUpdate) {
+        deviceToUpdate.name = newName; // Update live device state
+      }
+
+      // Check cache separately, as device might be disconnected but known
+      const cachedDevice = savedDevicesCache.value.get(deviceId);
+      if (cachedDevice) {
+        cachedDevice.name = newName;
+        deviceToUpdate = cachedDevice; // Ensure deviceToUpdate points to the (potentially cached-only) device
+      }
+
+      if (deviceToUpdate) {
+        const serializableDevice = createSerializableDevice(deviceToUpdate);
+        serializableDevice.name = newName; // Ensure name is correct on the copy
+        
+        await DatabaseService.saveDevice(serializableDevice);
+
+        // Update the cache with the fully updated serializable device to ensure consistency
+        savedDevicesCache.value.set(deviceId, serializableDevice);
+
+        console.log(`Device name updated for ${deviceId} to ${newName} and saved.`);
+      } else {
+        console.warn(`Device not found for name update: ${deviceId}`);
+        state.value.error = `Device ${deviceId} not found for name update.`;
+      }
+    } catch (error) {
+      console.error(`Error updating device name for ${deviceId}:`, error);
+      state.value.error = `Failed to update device name: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+
+  // Convert a USB device to TCP/IP mode
+  async convertDeviceToTcpIp(usbDeviceId: string): Promise<{ success: boolean; message: string; newDeviceId?: string }> {
+    try {
+      const originalDeviceInState = this.getDeviceById(usbDeviceId);
+      if (!originalDeviceInState && !savedDevicesCache.value.has(usbDeviceId)) {
+        const message = `USB Device not found for TCP/IP conversion: ${usbDeviceId}`;
+        console.warn(message);
+        state.value.error = message;
+        return { success: false, message };
+      }
+
+      const sourceDeviceData = originalDeviceInState || savedDevicesCache.value.get(usbDeviceId)!;
+
+      if (sourceDeviceData.isTcpIp || sourceDeviceData.id.includes(':')) {
+        const message = `Device ${usbDeviceId} is already a TCP/IP device or has an IP-like ID. Attempting to ensure connection.`;
+        console.warn(message);
+        if (!sourceDeviceData.tcpConnected) {
+          console.log(`Attempting to connect already TCP/IP device: ${sourceDeviceData.id}`);
+          const ipToConnect = sourceDeviceData.ip || sourceDeviceData.id.split(':')[0];
+          if (ipToConnect) {
+            await this.connectDevice(ipToConnect);
+            await this.loadDevices();
+            const updatedDevice = this.getDeviceById(sourceDeviceData.id);
+            if (updatedDevice?.tcpConnected) {
+              return { success: true, message: `Device ${sourceDeviceData.id} is now connected via TCP/IP.`, newDeviceId: sourceDeviceData.id };
+            } else {
+              return { success: false, message: `Failed to connect TCP/IP device ${sourceDeviceData.id}.` };
+            }
+          } else {
+            const errMsg = `Could not determine IP for already TCP/IP device: ${sourceDeviceData.id}`;
+            console.error(errMsg);
+            return { success: false, message: errMsg };
+          }
+        }
+        return { success: true, message: `Device ${sourceDeviceData.id} was already TCP/IP and connected.`, newDeviceId: sourceDeviceData.id };
+      }
+
+      const conversionResult = await AdbService.convertUsbToTcpIp(usbDeviceId);
+
+      if (conversionResult.success && conversionResult.newId && conversionResult.ipAddress) {
+        const newTcpDeviceId = conversionResult.newId;
+        const newIpAddress = conversionResult.ipAddress;
+        console.log(`Device ${usbDeviceId} switched to TCP/IP. New ID is ${newTcpDeviceId}`);
+
+        const newTcpDeviceData: Device = {
+          ...createSerializableDevice(sourceDeviceData),
+          id: newTcpDeviceId,
+          previousId: usbDeviceId,
+          ip: newIpAddress,
+          name: sourceDeviceData.name,
+          isTcpIp: true,
+          usbConnected: false,
+          tcpConnected: false, 
+          status: 'disconnected',
+        };
+
+        if (savedDevicesCache.value.has(usbDeviceId)) {
+          savedDevicesCache.value.delete(usbDeviceId);
+        }
+        savedDevicesCache.value.set(newTcpDeviceId, newTcpDeviceData);
+        await DatabaseService.saveDevice(newTcpDeviceData);
+        await this.loadDevices();
+        
+        const finalTcpDevice = this.getDeviceById(newTcpDeviceId);
+        if (finalTcpDevice?.tcpConnected) {
+          return { success: true, message: `Device successfully switched to TCP/IP (${newTcpDeviceId}) and connected.`, newDeviceId: newTcpDeviceId };
+        } else {
+          // It switched but didn't connect automatically, which is common. User might need to manually connect if ADB daemon on device is slow to restart on new port.
+          return { success: true, message: `Device switched to TCP/IP mode (${newTcpDeviceId}). You may need to manually connect if it doesn't appear automatically.`, newDeviceId: newTcpDeviceId };
+        }
+      } else {
+        const message = `Failed to switch device ${usbDeviceId} to TCP/IP mode. ADB service reported: ${JSON.stringify(conversionResult)}. Ensure device is authorized and ADB is working.`;
+        console.error(message);
+        state.value.error = message;
+        if (conversionResult.newId) { // It might have a new ID even if connection part failed
+            await this.loadDevices();
+        }
+        return { success: false, message };
+      }
+    } catch (error) {
+      const message = `Error in convertDeviceToTcpIp for ${usbDeviceId}: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(message);
+      state.value.error = message;
+      return { success: false, message };
+    }
+  },
+
   // Toggle device selection for streaming
   toggleDeviceSelection(deviceId: string) {
     const index = state.value.selectedDevices.indexOf(deviceId)
@@ -710,25 +828,38 @@ export const deviceStore = {
   },
   
   // Update device streaming status
-  setDeviceStreaming(deviceId: string, isStreaming: boolean) {
-    const device = this.findDeviceByAnyId(deviceId)
-    if (device) {
-      device.isStreaming = isStreaming
+  async setDeviceStreaming(deviceId: string, isStreaming: boolean) {
+    try {
+      const device = this.getDeviceById(deviceId)
       
-      // Also update in the cache and database if found
-      const savedDevice = this.findSavedDeviceByAnyId(deviceId)
-      if (savedDevice) {
-        savedDevice.isStreaming = isStreaming
-        savedDevicesCache.value.set(savedDevice.id, savedDevice)
+      if (device) {
+        // Vérifier que le device est connecté en TCP/IP pour le streaming
+        if (isStreaming && device.tcpConnected !== true) {
+          console.warn(`Tentative de streaming sur un appareil non connecté en TCP/IP: ${deviceId}`);
+          return false;
+        }
         
-        // Create a serializable copy of the device object for database storage
-        const deviceForStorage = createSerializableDevice(savedDevice)
+        // Update local state
+        device.isStreaming = isStreaming
         
-        // Save the clean object to the database
-        DatabaseService.saveDevice(deviceForStorage).catch(error => {
-          console.error(`Error updating streaming status for ${deviceId}:`, error)
-        })
+        // If it's in our saved devices, update it there too
+        if (savedDevicesCache.value.has(deviceId)) {
+          const savedDevice = savedDevicesCache.value.get(deviceId)!
+          savedDevice.isStreaming = isStreaming
+          
+          // Save to database
+          await DatabaseService.saveDevice(createSerializableDevice(savedDevice))
+        } else {
+          // If it's a new device that wasn't saved before, save it now
+          savedDevicesCache.value.set(deviceId, device)
+          await DatabaseService.saveDevice(createSerializableDevice(device))
+        }
+        return true;
       }
+      return false;
+    } catch (error) {
+      console.error(`Error updating streaming status for device ${deviceId}:`, error)
+      return false;
     }
   }
-}
+} 

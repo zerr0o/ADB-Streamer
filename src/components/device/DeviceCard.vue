@@ -1,75 +1,3 @@
-<script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Device } from '../../types/device'
-import { deviceStore } from '../../store/deviceStore'
-
-interface Props {
-  device: Device
-}
-
-const props = defineProps<Props>()
-
-// State
-const isLoading = ref(false)
-const showTcpIpDialog = ref(false)
-const statusMessage = ref('')
-const isSuccess = ref(false)
-
-// Computed properties
-const isSelected = computed(() => deviceStore.isDeviceSelected(props.device.id))
-const statusColor = computed(() => props.device.status === 'connected' ? 'success' : 'error')
-const batteryColor = computed(() => {
-  if (!props.device.batteryLevel) return 'grey'
-  if (props.device.batteryLevel > 50) return 'success'
-  if (props.device.batteryLevel > 20) return 'warning'
-  return 'error'
-})
-
-// Is this a USB-connected device that can be converted to TCP/IP?
-const isUsbDevice = computed(() => 
-  props.device.status === 'connected' && !props.device.ip
-)
-
-// Methods
-const toggleSelection = () => {
-  deviceStore.toggleDeviceSelection(props.device.id)
-}
-
-const disconnectDevice = async () => {
-  await deviceStore.disconnectDevice(props.device)
-}
-
-const connectDevice = async () => {
-  if (props.device.ip) {
-    await deviceStore.connectDevice(props.device.ip)
-  }
-}
-
-// Convert device from USB to TCP/IP mode
-const convertToTcpIp = async () => {
-  if (!isUsbDevice.value) return
-  
-  isLoading.value = true
-  statusMessage.value = ''
-  isSuccess.value = false
-  showTcpIpDialog.value = true
-  
-  try {
-    // Call the deviceStore method to convert
-    const result = await deviceStore.convertDeviceToTcpIp(props.device.id)
-    
-    // Display the result
-    statusMessage.value = result.message
-    isSuccess.value = result.success
-  } catch (error) {
-    statusMessage.value = `Error: ${error instanceof Error ? error.message : String(error)}`
-    isSuccess.value = false
-  } finally {
-    isLoading.value = false
-  }
-}
-</script>
-
 <template>
   <v-card
     :class="{ 'selected-card': isSelected }"
@@ -84,18 +12,30 @@ const convertToTcpIp = async () => {
     </v-card-item>
 
     <v-card-text>
-      <div class="d-flex align-center mb-2">
-        <v-icon 
-          :color="statusColor"
-          size="small"
-          class="mr-1"
-        >
-          mdi-{{ device.status === 'connected' ? 'link' : 'link-off' }}
-        </v-icon>
-        <span class="text-caption">{{ device.status === 'connected' ? 'Connected' : 'Disconnected' }}</span>
+      <!-- USB Connection Status -->
+      <div v-if="device.usbConnected" class="d-flex align-center mb-1">
+        <v-icon color="primary" size="small" class="mr-1">mdi-usb</v-icon>
+        <span class="text-caption">USB Connected</span>
       </div>
 
-      <div v-if="device.batteryLevel !== undefined" class="d-flex align-center mb-2">
+      <!-- TCP/IP Connection Status -->
+      <div v-if="device.isTcpIp" class="d-flex align-center mb-1">
+        <v-icon :color="device.tcpConnected ? 'success' : 'error'" size="small" class="mr-1">
+          {{ device.tcpConnected ? 'mdi-wifi' : 'mdi-wifi-off' }}
+        </v-icon>
+        <span class="text-caption">
+          TCP/IP: {{ device.tcpConnected ? 'Connected' : 'Disconnected' }} ({{ device.ip }})
+        </span>
+      </div>
+      
+      <!-- Fallback Disconnected Status -->
+      <div v-if="!device.usbConnected && !device.tcpConnected" class="d-flex align-center mb-1">
+        <v-icon color="error" size="small" class="mr-1">mdi-link-off</v-icon>
+        <span class="text-caption">Disconnected</span>
+      </div>
+
+      <!-- Battery Level -->
+      <div v-if="device.batteryLevel !== undefined" class="d-flex align-center mt-2 mb-1">
         <v-icon 
           :color="batteryColor"
           size="small"
@@ -111,65 +51,41 @@ const convertToTcpIp = async () => {
         </v-icon>
         <span class="text-caption">{{ device.batteryLevel }}%</span>
       </div>
-      
-      <!-- Show IP address if available -->
-      <div v-if="device.ip" class="d-flex align-center">
-        <v-icon 
-          color="info"
-          size="small"
-          class="mr-1"
-        >
-          mdi-ip-network
-        </v-icon>
-        <span class="text-caption">{{ device.ip }}</span>
-      </div>
-      
-      <!-- Show USB indicator for devices without IP -->
-      <div v-else-if="device.status === 'connected'" class="d-flex align-center">
-        <v-icon 
-          color="warning"
-          size="small"
-          class="mr-1"
-        >
-          mdi-usb
-        </v-icon>
-        <span class="text-caption">USB Connected</span>
-      </div>
     </v-card-text>
 
-    <v-card-actions>
-      <!-- For connected IP devices: Disconnect button -->
+    <v-card-actions class="justify-end">
+      <!-- Disconnect TCP Button -->
       <v-btn
-        v-if="device.status === 'connected' && device.ip"
+        v-if="device.tcpConnected"
         color="error"
         variant="text"
         size="small"
         @click.stop="disconnectDevice"
       >
-        Disconnect
+        Disconnect TCP
       </v-btn>
-      
-      <!-- For USB-connected devices: Convert to TCP/IP button -->
+
+      <!-- Enable/Reconnect TCP (via USB) Button -->
       <v-btn
-        v-else-if="isUsbDevice"
+        v-if="showEnableTcpIpButton"
         color="info"
         variant="text"
         size="small"
         @click.stop="convertToTcpIp"
         :loading="isLoading"
       >
-        Convert to TCP/IP
+        {{ enableTcpIpButtonText }}
       </v-btn>
-      
-      <!-- For disconnected devices with IP: Connect button -->
+
+      <!-- Connect TCP Button (when not USB connected but is TCP/IP capable and disconnected) -->
       <v-btn
-        v-else-if="device.ip && device.status !== 'connected'"
+        v-else-if="device.isTcpIp && !device.tcpConnected && !device.usbConnected"
         color="success"
         variant="text"
         size="small"
         @click.stop="connectDevice"
       >
-        Connect
+        Connect TCP
       </v-btn>
     </v-card-actions>
     
@@ -213,6 +129,92 @@ const convertToTcpIp = async () => {
     </v-dialog>
   </v-card>
 </template>
+
+
+
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { Device } from '../../types/device'
+import { deviceStore } from '../../store/deviceStore'
+
+interface Props {
+  device: Device
+}
+
+const props = defineProps<Props>()
+
+// State
+const isLoading = ref(false)
+const showTcpIpDialog = ref(false)
+const statusMessage = ref('')
+const isSuccess = ref(false)
+
+// Computed properties
+const isSelected = computed(() => deviceStore.isDeviceSelected(props.device.id))
+
+const batteryColor = computed(() => {
+  if (!props.device.batteryLevel) return 'grey'
+  if (props.device.batteryLevel > 50) return 'success'
+  if (props.device.batteryLevel > 20) return 'warning'
+  return 'error'
+})
+
+// Determine if the 'Enable TCP/IP' or 'Reconnect TCP (USB)' button should be shown
+const showEnableTcpIpButton = computed(() => {
+  return props.device.usbConnected && !props.device.tcpConnected;
+});
+
+const enableTcpIpButtonText = computed(() => {
+  if (!props.device.isTcpIp) {
+    return 'Enable TCP/IP'; // Device is USB, never been TCP/IP or lost that specific record
+  } else if (props.device.usbConnected && !props.device.tcpConnected) {
+    return 'Reconnect TCP (USB)'; // Device is known TCP/IP, but currently only USB is active
+  }
+  return 'Enable TCP/IP'; // Fallback
+});
+
+// Methods
+const toggleSelection = () => {
+  deviceStore.toggleDeviceSelection(props.device.id)
+}
+
+const disconnectDevice = async () => {
+  await deviceStore.disconnectDevice(props.device)
+}
+
+const connectDevice = async () => {
+  if (props.device.ip) {
+    await deviceStore.connectDevice(props.device.ip)
+  }
+}
+
+// Convert device from USB to TCP/IP mode
+const convertToTcpIp = async () => {
+  // Updated condition: Trigger if USB is connected, regardless of current TCP state for enabling/reconnecting
+  if (!props.device.usbConnected) return;
+  
+  isLoading.value = true
+  statusMessage.value = ''
+  isSuccess.value = false
+  showTcpIpDialog.value = true
+  
+  try {
+    // Call the deviceStore method to convert
+    const result = await deviceStore.convertDeviceToTcpIp(props.device.id)
+    
+    // Display the result
+    statusMessage.value = result.message
+    isSuccess.value = result.success
+  } catch (error) {
+    statusMessage.value = `Error: ${error instanceof Error ? error.message : String(error)}`
+    isSuccess.value = false
+  } finally {
+    isLoading.value = false
+  }
+}
+</script>
+
+
 
 <style scoped>
 .device-card {

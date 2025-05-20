@@ -9,6 +9,11 @@ export interface Device {
   model?: string;       // Device model
   screenWidth?: number; // Screen width in pixels
   screenHeight?: number; // Screen height in pixels
+  
+  // Nouveaux champs pour distinguer les connexions
+  isTcpIp?: boolean;    // True if this is a TCP/IP device
+  tcpConnected?: boolean; // True if connected via TCP/IP
+  usbConnected?: boolean; // True if connected via USB
 }
 
 export interface DeviceState {
