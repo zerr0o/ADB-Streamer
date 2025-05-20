@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app >
     <!-- App Bar -->
     <v-app-bar>
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>

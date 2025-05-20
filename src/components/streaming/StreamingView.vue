@@ -16,6 +16,9 @@
             size="large"
             @click="restartDeviceStream(device.id, index)"
           >
+
+            <v-icon icon="mdi-refresh" size="large" />
+            {{ device.name || device.id }}
             <v-tooltip activator="parent" location="top">Redémarrer le stream</v-tooltip>
           </v-btn>
         </div>
@@ -424,6 +427,7 @@ onBeforeUnmount(() => {
   pointer-events: none;
   display: flex;
   flex-direction: column;
+  background-color: rgb(6, 6, 6);
 }
 
 .streaming-grid {
@@ -438,6 +442,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   pointer-events: auto;
+  background-color: blue;
 }
 
 .streaming-controls {
@@ -446,6 +451,6 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   pointer-events: auto;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(255, 0, 0, 0.5);
 }
 </style>

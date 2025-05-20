@@ -38,7 +38,8 @@ export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')  
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
-
+app.commandLine.appendSwitch('high-dpi-support', '1')
+app.commandLine.appendSwitch('force-device-scale-factor', '1')
 
 const publicPath =
   process.env.NODE_ENV === 'development'
@@ -77,8 +78,7 @@ async function createWindow() {
     autoHideMenuBar: true,
     fullscreen: !VITE_DEV_SERVER_URL,
     minHeight:1080,
-    minWidth:1920,
-    
+    minWidth:1920,   
     webPreferences: {
       preload,
       // We're using contextBridge for security
