@@ -111,13 +111,13 @@
     </v-main>
     
     <!-- Footer -->
-    <v-footer app class="d-flex flex-column">
+    <!-- <v-footer app class="d-flex flex-column">
       <div class="text-center">
         <p class="text-caption text-medium-emphasis">
           ADB Management Interface | Made with Electron, Vue 3, and Vuetify
         </p>
       </div>
-    </v-footer>
+    </v-footer> -->
   </v-app>
 </template>
 

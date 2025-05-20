@@ -1,5 +1,36 @@
 <template>
   <div class="streaming-container">
+    <!-- Overlay de streaming -->
+    <div v-if="isStreaming" class="streaming-overlay">
+      <div class="streaming-grid" :style="gridStyle">
+        <div 
+          v-for="(device, index) in selectedDevices" 
+          :key="device.id"
+          class="streaming-cell"
+          :style="getCellStyle(index)"
+        >
+          <v-btn
+            v-if="!deviceStreamingStatus[device.id]"
+            color="primary"
+            icon="mdi-refresh"
+            size="large"
+            @click="restartDeviceStream(device.id, index)"
+          >
+            <v-tooltip activator="parent" location="top">Redémarrer le stream</v-tooltip>
+          </v-btn>
+        </div>
+      </div>
+      <div class="streaming-controls">
+        <v-btn
+          color="error"
+          size="large"
+          prepend-icon="mdi-stop"
+          @click="stopStreaming"
+        >
+          Stop Streaming
+        </v-btn>
+      </div>
+    </div>
     <v-row class="my-2">
       <v-col>
         <div class="d-flex justify-space-between align-center">
@@ -150,7 +181,6 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { StreamingService, ScreenDimensions } from '../../services/StreamingService'
@@ -162,6 +192,8 @@ const errorMessage = ref('')
 const isScrcpyAvailable = ref(false)
 const isStreaming = ref(false)
 const screenDimensions = ref<ScreenDimensions>({ width: 0, height: 0 })
+const deviceStreamingStatus = ref<Record<string, boolean>>({})
+const cellPositions = ref<Array<{ x: number, y: number, width: number, height: number }>>([])
 
 // Computed
 const selectedDevices = computed(() => {
@@ -204,7 +236,8 @@ const getScreenDimensions = () => {
   // Calculer les dimensions réelles en tenant compte du scaling
   screenDimensions.value = {
     width: window.screen.width * dpr,
-    height: window.screen.height * dpr
+    // Réduire la hauteur de 100px pour laisser de la place pour le bouton Stop Streaming
+    height: window.screen.height * dpr - 100
   };
 }
 
@@ -229,11 +262,23 @@ const startStreaming = async () => {
     // Update screen dimensions
     getScreenDimensions()
     
+    // Initialiser le statut de streaming pour chaque appareil
+    deviceIds.forEach(id => {
+      deviceStreamingStatus.value[id] = false
+    })
+    
     // Start streaming
-    const success = await StreamingService.startMosaicStreaming(deviceIds, screenDimensions.value)
+    const success = await StreamingService.startMosaicStreaming(deviceIds, screenDimensions.value, (positions) => {
+      // Stocker les positions des cellules pour l'overlay
+      cellPositions.value = positions
+    })
     
     if (success) {
       isStreaming.value = true
+      // Mettre à jour le statut de streaming pour chaque appareil
+      deviceIds.forEach(id => {
+        deviceStreamingStatus.value[id] = true
+      })
     } else {
       errorMessage.value = 'Failed to start streaming'
     }
@@ -253,6 +298,10 @@ const stopStreaming = async () => {
   try {
     await StreamingService.stopAllStreams()
     isStreaming.value = false
+    // Réinitialiser le statut de streaming pour tous les appareils
+    Object.keys(deviceStreamingStatus.value).forEach(id => {
+      deviceStreamingStatus.value[id] = false
+    })
   } catch (error) {
     console.error('Error stopping streaming:', error)
     errorMessage.value = 'Error stopping streaming: ' + 
@@ -272,6 +321,72 @@ const handleResize = () => {
   }
 }
 
+// Méthode pour redémarrer un stream spécifique
+const restartDeviceStream = async (deviceId: string, index: number) => {
+  if (index >= cellPositions.value.length) return;
+  
+  try {
+    // Mettre à jour le statut de streaming
+    deviceStreamingStatus.value[deviceId] = false;
+    
+    // Arrêter le stream existant pour cet appareil
+    await StreamingService.stopDeviceStream(deviceId);
+    
+    // Récupérer la position de la cellule
+    const cell = cellPositions.value[index];
+    
+    // Trouver l'appareil
+    const device = selectedDevices.value.find(d => d.id === deviceId);
+    
+    if (device) {
+      // Redémarrer le stream avec les mêmes options
+      const success = await StreamingService.startDeviceStream(deviceId, {
+        x: cell.x,
+        y: cell.y,
+        width: cell.width,
+        height: cell.height,
+        title: `Device ${deviceId}`,
+        noBorder: true,
+        alwaysOnTop: true,
+        noControl: selectedDevices.value.length > 1,
+        maxSize: 0,
+        crop: device.screenWidth && device.screenHeight ? 
+          StreamingService.calculateOptimalCrop(device.screenWidth, device.screenHeight) : 
+          `${screenDimensions.value.width}:${screenDimensions.value.height}:0:0`
+      });
+      
+      // Mettre à jour le statut de streaming
+      deviceStreamingStatus.value[deviceId] = success;
+    }
+  } catch (error) {
+    console.error(`Error restarting stream for device ${deviceId}:`, error);
+    errorMessage.value = `Error restarting stream for device ${deviceId}`;
+  }
+}
+
+// Style pour la grille
+const gridStyle = computed(() => {
+  const grid = StreamingService.calculateGrid(selectedDevices.value.length);
+  return {
+    gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
+    gridTemplateRows: `repeat(${grid.rows}, 1fr)`
+  };
+});
+
+// Style pour chaque cellule
+const getCellStyle = (index: number) => {
+  if (index >= cellPositions.value.length) return {};
+  
+  const cell = cellPositions.value[index];
+  return {
+    left: `${cell.x}px`,
+    top: `${cell.y}px`,
+    width: `${cell.width}px`,
+    height: `${cell.height}px`,
+    position: 'absolute' as const
+  };
+}
+
 // Lifecycle hooks
 onMounted(async () => {
   // Check if SCRCPY is available
@@ -282,8 +397,6 @@ onMounted(async () => {
   
   // Add resize listener
   window.addEventListener('resize', handleResize)
-  
-
 })
 
 onBeforeUnmount(() => {
@@ -295,9 +408,44 @@ onBeforeUnmount(() => {
 })
 </script>
 
-
 <style scoped>
 .streaming-container {
   height: 100%;
+  position: relative;
+}
+
+.streaming-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.streaming-grid {
+  flex: 1;
+  display: grid;
+  position: relative;
+}
+
+.streaming-cell {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.streaming-controls {
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  background-color: rgba(0, 0, 0, 0.5);
 }
 </style>

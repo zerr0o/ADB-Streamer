@@ -79,8 +79,15 @@ export class StreamingService {
   
   /**
    * Start streaming multiple devices in a mosaic layout
+   * @param deviceIds IDs of the devices to stream
+   * @param screenDimensions Screen dimensions
+   * @param onCellsCalculated Optional callback to get the calculated cell positions
    */
-  static async startMosaicStreaming(deviceIds: string[], screenDimensions: ScreenDimensions): Promise<boolean> {
+  static async startMosaicStreaming(
+    deviceIds: string[], 
+    screenDimensions: ScreenDimensions, 
+    onCellsCalculated?: (cells: Array<{ x: number, y: number, width: number, height: number }>) => void
+  ): Promise<boolean> {
     if (deviceIds.length === 0) {
       console.warn('No devices selected for mosaic streaming')
       return false
@@ -93,6 +100,11 @@ export class StreamingService {
       // Calculate grid dimensions
       const grid = this.calculateGrid(deviceIds.length)
       const cells = this.calculateCellPositions(grid.rows, grid.cols, screenDimensions)
+      
+      // Appeler le callback avec les positions des cellules si fourni
+      if (onCellsCalculated) {
+        onCellsCalculated(cells)
+      }
 
       // Trim 100px from the screen height
       screenDimensions.height -= 500;
@@ -157,7 +169,7 @@ export class StreamingService {
   /**
    * Calculate the optimal grid dimensions for the mosaic layout
    */
-  private static calculateGrid(numDevices: number): { rows: number, cols: number } {
+  static calculateGrid(numDevices: number): { rows: number, cols: number } {
     if (numDevices <= 1) return { rows: 1, cols: 1 }
     if (numDevices <= 2) return { rows: 1, cols: 2 }
     if (numDevices <= 4) return { rows: 2, cols: 2 }
