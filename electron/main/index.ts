@@ -260,6 +260,17 @@ async function getDeviceIpAddress(deviceId: string): Promise<string | null> {
   }
 }
 
+// Get serial number
+async function getSerialNumber(deviceId: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(`"${ADB_PATH}" -s ${deviceId} shell getprop ro.boot.serialno`)
+    return stdout.trim()
+  } catch (error) {
+    console.error(`Error getting serial number for ${deviceId}:`, error)
+    return null
+  }
+}
+
 // Convert USB device to TCP/IP mode and auto-connect
 async function convertUsbToTcpIp(deviceId: string): Promise<{ 
   success: boolean, 
@@ -438,6 +449,15 @@ ipcMain.handle('adb:usb-to-tcpip', async (_, deviceId: string) => {
   }
   
   return await convertUsbToTcpIp(deviceId)
+})
+
+// Get serial number
+ipcMain.handle('adb:get-serial-number', async (_, deviceId: string) => {
+  if (!checkAdbInstalled()) {
+    return null
+  }
+  
+  return await getSerialNumber(deviceId)
 })
 
 import { isScrcpyInstalled, optionsToArgs, startStream, stopStream, stopAllStreams } from './scrcpy';

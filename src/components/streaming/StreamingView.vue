@@ -10,22 +10,26 @@
           :style="getCellStyle(index)"
         >
           <v-btn
-            v-if="!deviceStreamingStatus[device.id]"
             color="primary"
-            icon="mdi-refresh"
-            size="large"
+            size="x-large"
+            class="rounded-xl"
             @click="restartDeviceStream(device.id, index)"
           >
-
-            <v-icon icon="mdi-refresh" size="large" />
-            {{ device.name || device.id }}
+            <v-icon icon="mdi-refresh" size="large" start />
+            Restart Stream ( {{ device.name ? device.name : device.id }} )
             <v-tooltip activator="parent" location="top">Redémarrer le stream</v-tooltip>
           </v-btn>
+
+          <div>
+          </div>
         </div>
       </div>
       <div class="streaming-controls">
         <v-btn
-          color="error"
+          color="red"
+          height="100%"
+          width="100%"
+          class="text-h4"
           size="large"
           prepend-icon="mdi-stop"
           @click="stopStreaming"
@@ -399,7 +403,7 @@ onMounted(async () => {
   getScreenDimensions()
   
   // Add resize listener
-  window.addEventListener('resize', handleResize)
+  //window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
@@ -407,7 +411,7 @@ onBeforeUnmount(() => {
   stopStreaming()
   
   // Remove resize listener
-  window.removeEventListener('resize', handleResize)
+  //window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -442,7 +446,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   pointer-events: auto;
-  background-color: blue;
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
 .streaming-controls {
@@ -451,6 +455,6 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   pointer-events: auto;
-  background-color: rgba(255, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.5);
 }
 </style>

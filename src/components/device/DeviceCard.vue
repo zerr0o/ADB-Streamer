@@ -2,7 +2,7 @@
   <v-card
     :class="{ 'selected-card': isSelected }"
     @click="toggleSelection"
-    :disabled="!device.tcpConnected && !device.usbConnected"
+    :disabled="!device.tcpConnected "
     variant="outlined"
     class="device-card mx-2 my-2 rounded-xl"
     

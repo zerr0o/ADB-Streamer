@@ -91,12 +91,24 @@ export class AdbService {
       return null
     }
   }
+
+  /**
+   * Get the serial number using getprop ro.boot.serialno
+   */
+  static async getSerialNumber(deviceId: string): Promise<string> {
+    try {
+      return await ipcRenderer.invoke('adb:get-serial-number', deviceId)
+    } catch (error) {
+      console.error(`Failed to get serial number for device ${deviceId}:`, error)
+      return ''
+    }
+  }
   
   /**
    * Convert USB device to TCP/IP mode and auto-connect
    * Returns success status, IP address, old USB ID, and new TCP/IP ID if successful
    */
-  static async convertUsbToTcpIp(deviceId: string): Promise<{ 
+  static async convertUsbToTcpIp(deviceId: string ): Promise<{ 
     success: boolean, 
     ipAddress: string | null,
     oldId: string,

@@ -1,6 +1,6 @@
 {
   "name": "electron-vue-vite",
-  "version": "0.1.13-alpha",
+  "version": "0.2.17-alpha",
   "main": "dist-electron/main/index.js",
   "description": "ADB Streamer",
   "author": "Victor PERES-NILLUS <victor@studiomuybridge.com>",

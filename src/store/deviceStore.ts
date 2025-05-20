@@ -159,7 +159,7 @@ export const deviceStore = {
         }
 
         //check if the device is already in the cache
-        let savedDevice = savedDevices.find(d => d.ip === newDevice.ip)
+        let savedDevice = savedDevices.find(d => d.id === newDevice.id)
         if (savedDevice) {
           newDevice = {
             ...savedDevice,
@@ -169,16 +169,16 @@ export const deviceStore = {
           savedDevices.splice(savedDevices.indexOf(savedDevice), 1)
         } else {
 
-          //check if the device ip is the same as another device
-          const deviceWithSameIp = devices.find(d => d.ip === newDevice.ip)
-          if (deviceWithSameIp) {
+          //check if the device id is the same as another device
+          const deviceWithSameId = devices.find(d => d.id === newDevice.id)
+          if (deviceWithSameId) {
 
             newDevice = {
-              ...deviceWithSameIp,
+              ...deviceWithSameId,
               ...newDevice,
             }
-            devices.splice(devices.indexOf(deviceWithSameIp), 1)
-            await DatabaseService.deleteDevice(deviceWithSameIp.id)
+            devices.splice(devices.indexOf(deviceWithSameId), 1)
+            await DatabaseService.deleteDevice(deviceWithSameId.id)
           }
 
           if (!isTcpIp) {
@@ -201,8 +201,8 @@ export const deviceStore = {
       }
 
 
-      //remove devices that are not in USB or TCP from this.selectedDevices
-      state.value.selectedDevices = state.value.selectedDevices.filter(device => devices.some(d => d.id === device))
+      //remove devices from selectedDevices that are not in TCP mode
+      state.value.selectedDevices = state.value.selectedDevices.filter(device => devices.some(d => d.id === device && d.tcpConnected))
 
       //Add remaining saved devices
       devices.push(...savedDevices)
@@ -217,7 +217,8 @@ export const deviceStore = {
   },
 
   async convertToTcpIp(device: Device) {
-    const result = await AdbService.convertUsbToTcpIp(device.id)
+    if (!device.usbId) return
+    const result = await AdbService.convertUsbToTcpIp(device.usbId)
     if (result.success) {
       device.id = result.newId || device.id
       device.ip = result.ipAddress || device.ip
@@ -230,7 +231,8 @@ export const deviceStore = {
 
   async formatUSBdevice(device: RawDevice) {
     let newDevice: Device = {
-      id: device.id,
+      id: await AdbService.getSerialNumber(device.id),
+      usbId: device.id,
       ip: device.ip,
       batteryLevel: undefined,
       model: device.model,
@@ -261,7 +263,7 @@ export const deviceStore = {
 
   async formatTCPdevice(device: RawDevice) {
     let newDevice: Device = {
-      id: device.id,
+      id: await AdbService.getSerialNumber(device.id),
       ip: device.ip,
       batteryLevel: undefined,
       model: device.model,
@@ -270,6 +272,7 @@ export const deviceStore = {
       tcpConnected: true,
       isStreaming: false,
     }
+
 
     //get screen dimensions
     const screenDimensions = await AdbService.getScreenDimensions(device.id)
