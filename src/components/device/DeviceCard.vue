@@ -4,6 +4,7 @@
     @click="toggleSelection"
     variant="outlined"
     class="device-card mx-2 my-2"
+    
   >
     <v-card-item>
       <v-card-title>{{ device.model+" - "+ device.name || 'Unknown Device' }}</v-card-title>
@@ -14,8 +15,12 @@
     <v-card-text>
       <!-- USB Connection Status -->
       <div v-if="device.usbConnected" class="d-flex align-center mb-1">
-        <v-icon color="primary" size="small" class="mr-1">mdi-usb</v-icon>
+        <v-icon color="success" size="small" class="mr-1">mdi-usb</v-icon>
         <span class="text-caption">USB Connected</span>
+      </div>
+      <div v-else class="d-flex align-center mb-1">
+        <v-icon color="error" size="small" class="mr-1">mdi-usb</v-icon>
+        <span class="text-caption">USB Disconnected</span>
       </div>
 
       <!-- TCP/IP Connection Status -->
@@ -24,14 +29,22 @@
           {{ device.tcpConnected ? 'mdi-wifi' : 'mdi-wifi-off' }}
         </v-icon>
         <span class="text-caption">
-          TCP/IP: {{ device.tcpConnected ? 'Connected' : 'Disconnected' }} ({{ device.ip }})
+          TCP/IP: {{ device.ip }}
         </span>
+      </div>
+      <div v-else class="d-flex align-center mb-1">
+        <v-icon color="error" size="small" class="mr-1">mdi-wifi-off</v-icon>
+        <span class="text-caption"> TCP/IP Disconnected</span>
       </div>
       
       <!-- Fallback Disconnected Status -->
-      <div v-if="!device.usbConnected && !device.tcpConnected" class="d-flex align-center mb-1">
+      <div v-if="device.status === 'connected'" class="d-flex align-center mb-1">
+        <v-icon color="success" size="small" class="mr-1">mdi-link</v-icon>
+        <span class="text-caption">Connected</span>
+      </div>
+      <div v-else class="d-flex align-center mb-1">
         <v-icon color="error" size="small" class="mr-1">mdi-link-off</v-icon>
-        <span class="text-caption">Disconnected</span>
+        <span class="text-caption">{{device.status}}</span>
       </div>
 
       <!-- Battery Level -->
@@ -51,43 +64,11 @@
         </v-icon>
         <span class="text-caption">{{ device.batteryLevel }}%</span>
       </div>
+      <div v-else class="d-flex align-center mb-1">
+        <v-icon color="error" size="small" class="mr-1">mdi-battery-alert</v-icon>
+        <span class="text-caption">Battery Level Unknown</span>
+      </div>
     </v-card-text>
-
-    <v-card-actions class="justify-end">
-      <!-- Disconnect TCP Button -->
-      <v-btn
-        v-if="device.tcpConnected"
-        color="error"
-        variant="text"
-        size="small"
-        @click.stop="disconnectDevice"
-      >
-        Disconnect TCP
-      </v-btn>
-
-      <!-- Enable/Reconnect TCP (via USB) Button -->
-      <v-btn
-        v-if="showEnableTcpIpButton"
-        color="info"
-        variant="text"
-        size="small"
-        @click.stop="convertToTcpIp"
-        :loading="isLoading"
-      >
-        {{ enableTcpIpButtonText }}
-      </v-btn>
-
-      <!-- Connect TCP Button (when not USB connected but is TCP/IP capable and disconnected) -->
-      <v-btn
-        v-else-if="device.isTcpIp && !device.tcpConnected && !device.usbConnected"
-        color="success"
-        variant="text"
-        size="small"
-        @click.stop="connectDevice"
-      >
-        Connect TCP
-      </v-btn>
-    </v-card-actions>
     
     <!-- TCP/IP Conversion Dialog -->
     <v-dialog v-model="showTcpIpDialog" max-width="400">
@@ -140,7 +121,7 @@ import { deviceStore } from '../../store/deviceStore';
 export default defineComponent({
   name: 'DeviceCard',
   props: {
-    device: {
+    device: { 
       type: Object as PropType<Device>,
       required: true
     }
@@ -180,35 +161,35 @@ export default defineComponent({
       deviceStore.toggleDeviceSelection(props.device.id);
     };
 
-    const disconnectDevice = async () => {
-      await deviceStore.disconnectDevice(props.device);
-    };
+    // const disconnectDevice = async () => {
+    //   await deviceStore.disconnectDevice(props.device);
+    // };
 
-    const connectDevice = async () => {
-      if (props.device.ip) {
-        await deviceStore.connectDevice(props.device.ip);
-      }
-    };
+    // const connectDevice = async () => {
+    //   if (props.device.ip) {
+    //     await deviceStore.connectDevice(props.device.ip);
+    //   }
+    // };
 
-    const convertToTcpIp = async () => {
-      if (!props.device.usbConnected) return;
+    // const convertToTcpIp = async () => {
+    //   if (!props.device.usbConnected) return;
       
-      isLoading.value = true;
-      statusMessage.value = '';
-      isSuccess.value = false;
-      showTcpIpDialog.value = true;
+    //   isLoading.value = true;
+    //   statusMessage.value = '';
+    //   isSuccess.value = false;
+    //   showTcpIpDialog.value = true;
       
-      try {
-        const result = await deviceStore.convertDeviceToTcpIp(props.device.id);
-        statusMessage.value = result.message;
-        isSuccess.value = result.success;
-      } catch (error) {
-        statusMessage.value = `Error: ${error instanceof Error ? error.message : String(error)}`;
-        isSuccess.value = false;
-      } finally {
-        isLoading.value = false;
-      }
-    };
+    //   try {
+    //     const result = await deviceStore.convertDeviceToTcpIp(props.device.id);
+    //     statusMessage.value = result.message;
+    //     isSuccess.value = result.success;
+    //   } catch (error) {
+    //     statusMessage.value = `Error: ${error instanceof Error ? error.message : String(error)}`;
+    //     isSuccess.value = false;
+    //   } finally {
+    //     isLoading.value = false;
+    //   }
+    // };
 
     return {
       isLoading,
@@ -220,9 +201,9 @@ export default defineComponent({
       showEnableTcpIpButton,
       enableTcpIpButtonText,
       toggleSelection,
-      disconnectDevice,
-      connectDevice,
-      convertToTcpIp
+      // disconnectDevice,
+      //connectDevice,
+      //convertToTcpIp
     };
   }
 });
@@ -234,6 +215,7 @@ export default defineComponent({
 .device-card {
   transition: all 0.2s ease;
   width: 200px;
+  background-color: rgba(var(--v-primary-card-base), 0.5);
 }
 
 .device-card:hover {
@@ -243,6 +225,6 @@ export default defineComponent({
 
 .selected-card {
   border: 2px solid green !important;
-  background-color: rgba(var(--v-primary-base), 0.05);
+  background-color: rgba(var(--v-primary-card-selected-base), 0.5);
 }
 </style>

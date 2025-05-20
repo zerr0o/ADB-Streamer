@@ -86,4 +86,11 @@ code {
   code {
     background-color: #f9f9f9;
   }
+
+
+  :root {
+    --v-primary-card-base: 255, 255, 255;
+    --v-primary-card-selected-base: 255, 255, 255;
+    --v-primary-card-selected-base: 255, 255, 255;
+  }
 }

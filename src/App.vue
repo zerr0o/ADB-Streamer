@@ -4,7 +4,6 @@ import DeviceGrid from './components/device/DeviceGrid.vue'
 import DeviceManager from './components/admin/DeviceManager.vue'
 import StreamingView from './components/streaming/StreamingView.vue'
 import { deviceStore } from './store/deviceStore'
-import { DatabaseService } from './services/DatabaseService'
 
 // State
 const drawer = ref(false)
