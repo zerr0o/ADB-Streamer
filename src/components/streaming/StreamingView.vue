@@ -189,6 +189,7 @@
 </template>
 
 <script setup lang="ts">
+//TODO ; régler le Probleme des ip vs ID
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { StreamingService, ScreenDimensions } from '../../services/StreamingService'
 import { deviceStore } from '../../store/deviceStore'
@@ -331,7 +332,6 @@ const handleResize = () => {
 // Méthode pour redémarrer un stream spécifique
 const restartDeviceStream = async (deviceId: string, index: number) => {
   if (index >= cellPositions.value.length) return;
-  
   try {
     // Mettre à jour le statut de streaming
     deviceStreamingStatus.value[deviceId] = false;
