@@ -1,6 +1,6 @@
 export interface Device {
   id: string;          // Unique identifier/serial number or IP:port
-  previousId?: string; // Previous USB ID when converted to TCP/IP
+  previousId?: string | null; // Previous USB ID when converted to TCP/IP
   ip?: string | null;         // IP address of the device (optional, e.g., for USB-only before IP discovery)
   name: string;        // Display name (last segment of IP)
   //status: 'connected' | 'disconnected'; // Connection status

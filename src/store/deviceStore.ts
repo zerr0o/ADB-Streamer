@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { Device, DeviceState } from '../types/device'
+import { Device, DeviceState, RawDevice } from '../types/device'
 import { AdbService } from '../services/AdbService'
 import { DatabaseService } from '../services/DatabaseService'
 
@@ -276,7 +276,8 @@ export const deviceStore = {
 
     try {
       const RawDevices = await AdbService.getDevices()
-      const savedDevices = await DatabaseService.getAllDevices()
+      let savedDevices = await DatabaseService.getAllDevices()
+      //console.log(savedDevices)
       const devices : Device[] = [];
 
 
@@ -284,62 +285,42 @@ export const deviceStore = {
       //Si oui, on ajoute le savedDevice à devices
       //Si non, on ajoute le RawDevice à devices
       for (const rawDevice of RawDevices) {
-        const savedDevice = savedDevices.find(d => d.id === rawDevice.id)
+        const savedDevice = savedDevices.find(d => d.previousId === rawDevice.id)
         if (savedDevice) {
+
+          savedDevices.splice(savedDevices.indexOf(savedDevice), 1)
           console.log("%c Device " + rawDevice.id + " found in the cache", 'background: #bada55; color: #222')
           devices.push(savedDevice)
         } else {
 
+          let newDevice : Device
           if (rawDevice.id.includes(':')) {
-            console.log("This device does not exist in the cache and is not a TCP/IP device: " + rawDevice.id)
-            continue;
+            newDevice = await this.formatTCPdevice(rawDevice)
+            
+            
+          }else{
+
+            newDevice = await this.formatUSBdevice(rawDevice)
+            
           }
 
-          let newDevice : Device = {
-            id: rawDevice.id,
-            name: rawDevice.name,
-            ip: rawDevice.ip,
-            batteryLevel: undefined,
-            model: rawDevice.model,
-            screenWidth: undefined,
-            screenHeight: undefined,
-            tcpConnected: false,
-            usbConnected: true,
-            isStreaming: false,
-            previousId: undefined,
+          //check if the device ip is the same as another device
+          const deviceWithSameIp = devices.find(d => d.ip === newDevice.ip)
+          if (deviceWithSameIp) {
+            console.log("%c Device " + newDevice.id + " has the same IP as " + deviceWithSameIp.id, 'background: #bada55; color: #222')
+            newDevice.previousId = deviceWithSameIp.id
+            devices.splice(devices.indexOf(deviceWithSameIp), 1)
+            await DatabaseService.deleteDevice(deviceWithSameIp.id)
           }
 
-          //get screen dimensions
-          const screenDimensions = await AdbService.getScreenDimensions(rawDevice.id)
-          newDevice.screenWidth = screenDimensions.width
-          newDevice.screenHeight = screenDimensions.height
-          
-          //get battery level
-          const batteryLevel = await AdbService.getBatteryLevel(rawDevice.id)
-          newDevice.batteryLevel = batteryLevel
-
-          const ipAddress = await AdbService.getDeviceIpAddress(rawDevice.id)
-          newDevice.ip = ipAddress
-
-          //add to cache
-          savedDevicesCache.value.set(rawDevice.id, newDevice)
-
+          await DatabaseService.saveDevice(newDevice)
           devices.push(newDevice)
         }
       }
 
-      //remove devices that are not in the cache
-      for (const device of devices) {
-        if (!savedDevicesCache.value.has(device.id)) {
-          console.log("%c Device " + device.id + " removed from the cache", 'background: #ff0000; color: #222')
-          devices.splice(devices.indexOf(device), 1)
-        }
-      }
-
-
-
-
-      console.log(devices)
+      //Add remaining saved devices
+      devices.push(...savedDevices)
+    
       state.value.devices = devices;
       
       
@@ -349,6 +330,69 @@ export const deviceStore = {
       state.value.loading = false
     }
     
+  },
+
+  async formatUSBdevice(device: RawDevice){
+    let newDevice : Device = {
+      id: device.id,
+      name: device.name,
+      ip: device.ip,
+      batteryLevel: undefined,
+      model: device.model,
+      screenWidth: undefined,
+      screenHeight: undefined,
+      tcpConnected: false,
+      usbConnected: true,
+      isStreaming: false,
+      previousId: device.id,
+    }
+
+    //get screen dimensions
+    const screenDimensions = await AdbService.getScreenDimensions(device.id)
+    newDevice.screenWidth = screenDimensions.width
+    newDevice.screenHeight = screenDimensions.height
+    
+    //get battery level
+    const batteryLevel = await AdbService.getBatteryLevel(device.id)
+    newDevice.batteryLevel = batteryLevel
+
+    const ipAddress = await AdbService.getDeviceIpAddress(device.id)
+    newDevice.ip = ipAddress
+
+    return newDevice
+    
+    
+  },
+
+
+  async formatTCPdevice(device: RawDevice){
+    let newDevice : Device = {
+      id: device.id,
+      name: device.name,
+      ip: device.ip,
+      batteryLevel: undefined,
+      model: device.model,
+      screenWidth: undefined,
+      screenHeight: undefined,
+      tcpConnected: true,
+      usbConnected: false,
+      isStreaming: false,
+      previousId: null,
+    }
+
+    //get screen dimensions
+    const screenDimensions = await AdbService.getScreenDimensions(device.id)
+    newDevice.screenWidth = screenDimensions.width
+    newDevice.screenHeight = screenDimensions.height
+    
+    //get battery level
+    const batteryLevel = await AdbService.getBatteryLevel(device.id)
+    newDevice.batteryLevel = batteryLevel
+
+    const ipAddress = await AdbService.getDeviceIpAddress(device.id)
+    newDevice.ip = ipAddress
+
+    return newDevice    
   },
 
 
@@ -663,7 +707,7 @@ export const deviceStore = {
 
       const sourceDeviceData = originalDeviceInState || savedDevicesCache.value.get(usbDeviceId)!;
 
-      if (sourceDeviceData.isTcpIp || sourceDeviceData.id.includes(':')) {
+      if (sourceDeviceData.id.includes(':')) {
         const message = `Device ${usbDeviceId} is already a TCP/IP device or has an IP-like ID. Attempting to ensure connection.`;
         console.warn(message);
         if (!sourceDeviceData.tcpConnected) {
@@ -700,10 +744,9 @@ export const deviceStore = {
           previousId: usbDeviceId,
           ip: newIpAddress,
           name: sourceDeviceData.name,
-          isTcpIp: true,
           usbConnected: false,
           tcpConnected: false,
-          status: 'disconnected',
+          isStreaming: false,
         };
 
         if (savedDevicesCache.value.has(usbDeviceId)) {
