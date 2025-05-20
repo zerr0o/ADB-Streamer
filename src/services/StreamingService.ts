@@ -93,6 +93,10 @@ export class StreamingService {
       // Calculate grid dimensions
       const grid = this.calculateGrid(deviceIds.length)
       const cells = this.calculateCellPositions(grid.rows, grid.cols, screenDimensions)
+
+      // Trim 100px from the screen height
+      screenDimensions.height -= 500;
+
       
       let anyStarted = false;
       for (let index = 0; index < deviceIds.length; index++) {

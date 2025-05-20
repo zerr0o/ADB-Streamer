@@ -114,7 +114,38 @@ export const deviceStore = {
     
     try {
       // Get connected devices from ADB
-      const adbDevices = await AdbService.getDevices()
+      let adbDevices = await AdbService.getDevices()
+      
+      // Filtrage strict pour les devices TCP/IP
+      // Certains peuvent être rapportés comme connectés par ADB alors qu'ils ne le sont plus réellement
+      const verifiedDevices = [];
+      for (const device of adbDevices) {
+        // Si c'est un device TCP/IP, vérifier qu'on peut vraiment l'atteindre
+        if (device.id.includes(':') && device.status === 'connected') {
+          try {
+            // On utilise getBatteryLevel comme test pratique de connectivité
+            // Si cette commande réussit, le device est vraiment joignable
+            console.log(`Vérification de connectivité réelle pour device TCP/IP ${device.id}...`);
+            const batteryLevel = await AdbService.getBatteryLevel(device.id);
+            
+            if (batteryLevel === -1) {
+              console.log(`Device TCP/IP ${device.id} marqué connecté par ADB mais non joignable (échec getBatteryLevel) - marqué déconnecté`);
+              device.status = 'disconnected' as const;
+            } else {
+              console.log(`Device TCP/IP ${device.id} confirmé joignable (batteryLevel: ${batteryLevel})`);
+              // Stocker le niveau de batterie obtenu
+              device.batteryLevel = batteryLevel;
+            }
+          } catch (err) {
+            console.log(`Erreur lors de la vérification de connectivité pour ${device.id} - marqué déconnecté`, err);
+            device.status = 'disconnected' as const;
+          }
+        }
+        verifiedDevices.push(device);
+      }
+      
+      // Utiliser les devices vérifiés pour la suite
+      adbDevices = verifiedDevices;
       
       // Check if we got a proper response
       if (adbDevices.length === 0) {
@@ -183,6 +214,7 @@ export const deviceStore = {
               
               if (existingTcpDevice) {
                 console.log(`We already have a device with TCP/IP ID ${expectedTcpId}, skipping conversion`);
+
                 
                 // Update the relationship if needed
                 if (existingTcpDevice.previousId !== device.id) {
@@ -305,12 +337,59 @@ export const deviceStore = {
       for (const [id, device] of savedDevicesCache.value.entries()) {
         // Skip if device is already in the list
         if (!mergedDevices.some(d => d.id === id)) {
-          // Add as disconnected
+          // Si c'est un device TCP/IP
+          if (device.id.includes(':')) {
+            // Est-il présent dans adbDevices ?
+            const stillConnected = adbDevices.some(d => d.id === device.id);
+            if (!stillConnected) {
+              // Marquer explicitement comme déconnecté partout
+              const disconnectedDevice = {
+                ...device,
+                status: 'disconnected' as const,
+                batteryLevel: undefined
+              };
+              savedDevicesCache.value.set(device.id, disconnectedDevice);
+              await DatabaseService.saveDevice(createSerializableDevice(disconnectedDevice));
+              mergedDevices.push(disconnectedDevice);
+              continue;
+            }
+          }
+          // Si c'est un device TCP/IP, vérifier si un USB avec previousId existe et est connecté
+          if (device.id.includes(':') && device.previousId) {
+            const usbDevice = mergedDevices.find(d => d.id === device.previousId && d.status === 'connected');
+            if (usbDevice) {
+              // Relancer la conversion TCP/IP automatiquement
+              console.log(`TCP/IP device ${device.id} absent, USB ${usbDevice.id} connecté : relance automatique du switch TCP/IP.`);
+              try {
+                const result = await AdbService.convertUsbToTcpIp(usbDevice.id);
+                if (result.success && result.ipAddress && result.newId) {
+                  console.log(`Conversion USB->TCP/IP réussie pour ${usbDevice.id}`);
+                  // Mettre à jour le device dans le cache et la DB
+                  const updatedDevice = {
+                    ...usbDevice,
+                    id: result.newId,
+                    ip: result.ipAddress,
+                    previousId: usbDevice.id,
+                    status: 'connected' as const,
+                  };
+                  savedDevicesCache.value.set(result.newId, updatedDevice);
+                  await DatabaseService.saveDevice(createSerializableDevice(updatedDevice));
+                  mergedDevices.push(updatedDevice);
+                  continue; // On ne push pas l'ancien device TCP/IP déconnecté
+                } else {
+                  console.warn(`Echec de la reconversion USB->TCP/IP pour ${usbDevice.id}`);
+                }
+              } catch (err) {
+                console.error(`Erreur lors de la reconversion USB->TCP/IP :`, err);
+              }
+            }
+          }
+          // Ajouter comme déconnecté sinon
           mergedDevices.push({
             ...device,
-            status: 'disconnected',
+            status: 'disconnected' as const,
             batteryLevel: undefined,
-          })
+          });
         }
       }
       
