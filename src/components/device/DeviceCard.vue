@@ -7,7 +7,8 @@
     
   >
     <v-card-item>
-      <v-card-title>{{ device.model+" - "+ device.name || 'Unknown Device' }}</v-card-title>
+      <v-card-title>{{ device.name || 'Unknown Device' }}</v-card-title>
+      <v-card-subtitle>{{ device.model || 'Unknown Model' }}</v-card-subtitle>
       <v-card-subtitle>{{ device.ip || 'No IP Address' }}</v-card-subtitle>
       <v-card-subtitle>{{ device.screenWidth+"x"+device.screenHeight || 'No Screen Size' }}</v-card-subtitle>
     </v-card-item>
@@ -24,7 +25,7 @@
       </div>
 
       <!-- TCP/IP Connection Status -->
-      <div v-if="device.isTcpIp" class="d-flex align-center mb-1">
+      <div v-if="device.tcpConnected" class="d-flex align-center mb-1">
         <v-icon :color="device.tcpConnected ? 'success' : 'error'" size="small" class="mr-1">
           {{ device.tcpConnected ? 'mdi-wifi' : 'mdi-wifi-off' }}
         </v-icon>
@@ -37,15 +38,10 @@
         <span class="text-caption"> TCP/IP Disconnected</span>
       </div>
       
-      <!-- Fallback Disconnected Status -->
-      <div v-if="device.status === 'connected'" class="d-flex align-center mb-1">
-        <v-icon color="success" size="small" class="mr-1">mdi-link</v-icon>
-        <span class="text-caption">Connected</span>
-      </div>
-      <div v-else class="d-flex align-center mb-1">
-        <v-icon color="error" size="small" class="mr-1">mdi-link-off</v-icon>
-        <span class="text-caption">{{device.status}}</span>
-      </div>
+
+      <code >
+        {{device}}
+      </code>
 
       <!-- Battery Level -->
       <div v-if="device.batteryLevel !== undefined" class="d-flex align-center mt-2 mb-1">
@@ -216,7 +212,7 @@ export default defineComponent({
 .device-card {
   transition: all 0.2s ease;
   width: 200px;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .device-card:hover {

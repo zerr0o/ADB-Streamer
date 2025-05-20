@@ -15,7 +15,7 @@ import os from 'node:os'
 import { exec, spawn, ChildProcess } from 'child_process'
 import { promisify } from 'util'
 import fs from 'fs'
-import { Device } from '../../src/types/device'
+import { Device , RawDevice } from '../../src/types/device'
 import { StreamOptions } from '../../src/services/ScrcpyService'
 
 const execAsync = promisify(exec)
@@ -151,8 +151,8 @@ async function setupADB() {
 // ========== ADB Command Handlers ==========
 
 // Parse device list from ADB output
-function parseDeviceList(output: string): Device[] {
-  const devices: Device[] = []
+function parseDeviceList(output: string): RawDevice[] {
+  const devices: RawDevice[] = []
   const lines = output.trim().split('\n')
   
   // Skip the first line which is just a header
@@ -181,7 +181,7 @@ function parseDeviceList(output: string): Device[] {
       id,
       ip,
       name,
-      status: status === 'device' ? 'connected' : 'disconnected',
+      status: status === 'device' ? 'authorized' : 'unauthorized',
       model : model.replace('model:', '').replace('_', '')
     })
   }

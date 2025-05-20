@@ -137,8 +137,9 @@ const initError = ref<string | null>(null)
 // Navigation items
 const navItems = [
   { title: 'Devices', icon: 'mdi-virtual-reality', value: 'devices' },
-  { title: 'Administration', icon: 'mdi-cog', value: 'admin' },
-  { title: 'Streaming', icon: 'mdi-cast', value: 'streaming' }
+  { title: 'Streaming', icon: 'mdi-cast', value: 'streaming' },
+  { title: 'Administration', icon: 'mdi-cog', value: 'admin' }
+
 ]
 
 // Methods

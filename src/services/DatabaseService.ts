@@ -49,6 +49,7 @@ export class DatabaseService {
   static async getAllDevices(): Promise<Device[]> {
     await this.initDatabase()
     
+    console.log("%c getAllDevices", 'background:rgb(0, 193, 236); color: #222')
     return new Promise((resolve, reject) => {
       if (!db) {
         reject(new Error('Database not initialized'))

@@ -1,147 +1,3 @@
-<script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { StreamingService, ScreenDimensions } from '../../services/StreamingService'
-import { deviceStore } from '../../store/deviceStore'
-
-// State
-const isLoading = ref(false)
-const errorMessage = ref('')
-const isScrcpyAvailable = ref(false)
-const isStreaming = ref(false)
-const screenDimensions = ref<ScreenDimensions>({ width: 0, height: 0 })
-
-// Computed
-const selectedDevices = computed(() => {
-  return deviceStore.state.value.devices
-    .filter(device => deviceStore.selectedDevices.value.includes(device.id))
-})
-
-const noDevicesSelected = computed(() => selectedDevices.value.length === 0)
-
-const gridSize = computed(() => {
-  const numDevices = selectedDevices.value.length
-  if (numDevices <= 1) return '1x1'
-  if (numDevices <= 2) return '1x2'
-  if (numDevices <= 4) return '2x2'
-  if (numDevices <= 6) return '2x3'
-  if (numDevices <= 9) return '3x3'
-  if (numDevices <= 12) return '3x4'
-  return '4x4'
-})
-
-// Methods
-const checkScrcpyAvailability = async () => {
-  try {
-    isScrcpyAvailable.value = await StreamingService.isScrcpyAvailable()
-    
-    if (!isScrcpyAvailable.value) {
-      errorMessage.value = 'SCRCPY is not installed. Please install it to enable streaming.'
-    }
-  } catch (error) {
-    console.error('Error checking SCRCPY availability:', error)
-    errorMessage.value = 'Error checking SCRCPY availability'
-    isScrcpyAvailable.value = false
-  }
-}
-
-const getScreenDimensions = () => {
-  // Use window dimensions
-  const dpr = window.devicePixelRatio;
-  
-  // Calculer les dimensions réelles en tenant compte du scaling
-  screenDimensions.value = {
-    width: window.screen.width * dpr,
-    height: window.screen.height * dpr
-  };
-}
-
-const startStreaming = async () => {
-  if (noDevicesSelected.value) {
-    errorMessage.value = 'No devices selected for streaming'
-    return
-  }
-  
-  if (!isScrcpyAvailable.value) {
-    errorMessage.value = 'SCRCPY is not available'
-    return
-  }
-  
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    // Get the selected device IDs
-    const deviceIds = selectedDevices.value.map(device => device.id)
-    
-    // Update screen dimensions
-    getScreenDimensions()
-    
-    // Start streaming
-    const success = await StreamingService.startMosaicStreaming(deviceIds, screenDimensions.value)
-    
-    if (success) {
-      isStreaming.value = true
-    } else {
-      errorMessage.value = 'Failed to start streaming'
-    }
-  } catch (error) {
-    console.error('Error starting streaming:', error)
-    errorMessage.value = 'Error starting streaming: ' + 
-      (error instanceof Error ? error.message : String(error))
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const stopStreaming = async () => {
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    await StreamingService.stopAllStreams()
-    isStreaming.value = false
-  } catch (error) {
-    console.error('Error stopping streaming:', error)
-    errorMessage.value = 'Error stopping streaming: ' + 
-      (error instanceof Error ? error.message : String(error))
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// This is a placeholder for dealing with window resize
-const handleResize = () => {
-  getScreenDimensions()
-  
-  // If currently streaming, restart the stream with new dimensions
-  if (isStreaming.value) {
-    startStreaming()
-  }
-}
-
-// Lifecycle hooks
-onMounted(async () => {
-  // Check if SCRCPY is available
-  await checkScrcpyAvailability()
-  
-  // Get initial screen dimensions
-  getScreenDimensions()
-  
-  // Add resize listener
-  window.addEventListener('resize', handleResize)
-  
-
-})
-
-onBeforeUnmount(() => {
-  // Stop all streams when component is unmounted
-  stopStreaming()
-  
-  // Remove resize listener
-  window.removeEventListener('resize', handleResize)
-})
-</script>
-
 <template>
   <div class="streaming-container">
     <v-row class="my-2">
@@ -293,6 +149,152 @@ onBeforeUnmount(() => {
     </v-card>
   </div>
 </template>
+
+
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { StreamingService, ScreenDimensions } from '../../services/StreamingService'
+import { deviceStore } from '../../store/deviceStore'
+
+// State
+const isLoading = ref(false)
+const errorMessage = ref('')
+const isScrcpyAvailable = ref(false)
+const isStreaming = ref(false)
+const screenDimensions = ref<ScreenDimensions>({ width: 0, height: 0 })
+
+// Computed
+const selectedDevices = computed(() => {
+  return deviceStore.state.value.devices
+    .filter(device => deviceStore.selectedDevices.value.includes(device.id))
+})
+
+const noDevicesSelected = computed(() => selectedDevices.value.length === 0)
+
+const gridSize = computed(() => {
+  const numDevices = selectedDevices.value.length
+  if (numDevices <= 1) return '1x1'
+  if (numDevices <= 2) return '1x2'
+  if (numDevices <= 4) return '2x2'
+  if (numDevices <= 6) return '2x3'
+  if (numDevices <= 9) return '3x3'
+  if (numDevices <= 12) return '3x4'
+  return '4x4'
+})
+
+// Methods
+const checkScrcpyAvailability = async () => {
+  try {
+    isScrcpyAvailable.value = await StreamingService.isScrcpyAvailable()
+    
+    if (!isScrcpyAvailable.value) {
+      errorMessage.value = 'SCRCPY is not installed. Please install it to enable streaming.'
+    }
+  } catch (error) {
+    console.error('Error checking SCRCPY availability:', error)
+    errorMessage.value = 'Error checking SCRCPY availability'
+    isScrcpyAvailable.value = false
+  }
+}
+
+const getScreenDimensions = () => {
+  // Use window dimensions
+  const dpr = window.devicePixelRatio;
+  
+  // Calculer les dimensions réelles en tenant compte du scaling
+  screenDimensions.value = {
+    width: window.screen.width * dpr,
+    height: window.screen.height * dpr
+  };
+}
+
+const startStreaming = async () => {
+  if (noDevicesSelected.value) {
+    errorMessage.value = 'No devices selected for streaming'
+    return
+  }
+  
+  if (!isScrcpyAvailable.value) {
+    errorMessage.value = 'SCRCPY is not available'
+    return
+  }
+  
+  isLoading.value = true
+  errorMessage.value = ''
+  
+  try {
+    // Get the selected device IDs
+    const deviceIds = selectedDevices.value.map(device => device.id)
+    
+    // Update screen dimensions
+    getScreenDimensions()
+    
+    // Start streaming
+    const success = await StreamingService.startMosaicStreaming(deviceIds, screenDimensions.value)
+    
+    if (success) {
+      isStreaming.value = true
+    } else {
+      errorMessage.value = 'Failed to start streaming'
+    }
+  } catch (error) {
+    console.error('Error starting streaming:', error)
+    errorMessage.value = 'Error starting streaming: ' + 
+      (error instanceof Error ? error.message : String(error))
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const stopStreaming = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+  
+  try {
+    await StreamingService.stopAllStreams()
+    isStreaming.value = false
+  } catch (error) {
+    console.error('Error stopping streaming:', error)
+    errorMessage.value = 'Error stopping streaming: ' + 
+      (error instanceof Error ? error.message : String(error))
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// This is a placeholder for dealing with window resize
+const handleResize = () => {
+  getScreenDimensions()
+  
+  // If currently streaming, restart the stream with new dimensions
+  if (isStreaming.value) {
+    startStreaming()
+  }
+}
+
+// Lifecycle hooks
+onMounted(async () => {
+  // Check if SCRCPY is available
+  await checkScrcpyAvailability()
+  
+  // Get initial screen dimensions
+  getScreenDimensions()
+  
+  // Add resize listener
+  window.addEventListener('resize', handleResize)
+  
+
+})
+
+onBeforeUnmount(() => {
+  // Stop all streams when component is unmounted
+  stopStreaming()
+  
+  // Remove resize listener
+  window.removeEventListener('resize', handleResize)
+})
+</script>
+
 
 <style scoped>
 .streaming-container {

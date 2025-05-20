@@ -1,4 +1,4 @@
-import { Device } from '../types/device'
+import { RawDevice } from '../types/device'
 
 // Use window.ipcRenderer from the context bridge instead of direct import
 const ipcRenderer = window.ipcRenderer
@@ -11,7 +11,7 @@ export class AdbService {
   /**
    * Get all connected devices via ADB
    */
-  static async getDevices(): Promise<Device[]> {
+  static async getDevices(): Promise<RawDevice[]> {
     try {
       return await ipcRenderer.invoke('adb:get-devices')
     } catch (error) {
