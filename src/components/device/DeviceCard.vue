@@ -3,7 +3,7 @@
     :class="{ 'selected-card': isSelected }"
     @click="toggleSelection"
     variant="outlined"
-    class="device-card mx-2 my-2"
+    class="device-card mx-2 my-2 rounded-xl"
     
   >
     <v-card-item>
@@ -212,10 +212,11 @@ export default defineComponent({
 
 
 <style scoped>
+
 .device-card {
   transition: all 0.2s ease;
   width: 200px;
-  background-color: rgba(var(--v-primary-card-base), 0.5);
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .device-card:hover {
@@ -225,6 +226,6 @@ export default defineComponent({
 
 .selected-card {
   border: 2px solid green !important;
-  background-color: rgba(var(--v-primary-card-selected-base), 0.5);
+  background-color: rgba(7, 207, 0, 0.2)
 }
 </style>

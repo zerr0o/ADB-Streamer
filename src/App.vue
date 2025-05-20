@@ -1,54 +1,3 @@
-<script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import DeviceGrid from './components/device/DeviceGrid.vue'
-import DeviceManager from './components/admin/DeviceManager.vue'
-import StreamingView from './components/streaming/StreamingView.vue'
-import { deviceStore } from './store/deviceStore'
-
-// State
-const drawer = ref(false)
-const currentView = ref('devices')
-const isLoading = ref(true)
-const initError = ref<string | null>(null)
-
-// Navigation items
-const navItems = [
-  { title: 'Devices', icon: 'mdi-virtual-reality', value: 'devices' },
-  { title: 'Administration', icon: 'mdi-cog', value: 'admin' },
-  { title: 'Streaming', icon: 'mdi-cast', value: 'streaming' }
-]
-
-// Methods
-const setView = (view: string) => {
-  currentView.value = view
-  
-  // On mobile, close drawer after selection
-  if (window.innerWidth < 1024) {
-    drawer.value = false
-  }
-}
-
-const clearSelectedDevices = () => {
-  deviceStore.clearSelectedDevices()
-}
-
-// Initialize the application
-onMounted(async () => {
-  try {
-    isLoading.value = true
-    
-    // Initialize database and load devices
-    await deviceStore.initialize()
-    
-  } catch (error) {
-    console.error('Error initializing application:', error)
-    initError.value = `Failed to initialize application: ${error instanceof Error ? error.message : String(error)}`
-  } finally {
-    isLoading.value = false
-  }
-})
-</script>
-
 <template>
   <v-app>
     <!-- App Bar -->
@@ -171,6 +120,59 @@ onMounted(async () => {
     </v-footer>
   </v-app>
 </template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import DeviceGrid from './components/device/DeviceGrid.vue'
+import DeviceManager from './components/admin/DeviceManager.vue'
+import StreamingView from './components/streaming/StreamingView.vue'
+import { deviceStore } from './store/deviceStore'
+
+// State
+const drawer = ref(false)
+const currentView = ref('devices')
+const isLoading = ref(true)
+const initError = ref<string | null>(null)
+
+// Navigation items
+const navItems = [
+  { title: 'Devices', icon: 'mdi-virtual-reality', value: 'devices' },
+  { title: 'Administration', icon: 'mdi-cog', value: 'admin' },
+  { title: 'Streaming', icon: 'mdi-cast', value: 'streaming' }
+]
+
+// Methods
+const setView = (view: string) => {
+  currentView.value = view
+  
+  // On mobile, close drawer after selection
+  if (window.innerWidth < 1024) {
+    drawer.value = false
+  }
+}
+
+const clearSelectedDevices = () => {
+  deviceStore.clearSelectedDevices()
+}
+
+// Initialize the application
+onMounted(async () => {
+  try {
+    isLoading.value = true
+    
+    // Initialize database and load devices
+    await deviceStore.initialize()
+    
+  } catch (error) {
+    console.error('Error initializing application:', error)
+    initError.value = `Failed to initialize application: ${error instanceof Error ? error.message : String(error)}`
+  } finally {
+    isLoading.value = false
+  }
+})
+</script>
+
+
 
 <style>
 /* Global styles */
