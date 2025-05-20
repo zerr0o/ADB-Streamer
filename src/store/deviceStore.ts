@@ -112,20 +112,22 @@ export const deviceStore = {
 
 
 
-/**
- * @summary Loads devices from ADB, merges them with saved device information,
- * handles device status updates, and manages USB to TCP/IP conversions.
- */
-  async loadDevices(){
+  /**
+   * @summary Loads devices from ADB, merges them with saved device information,
+   * handles device status updates, and manages USB to TCP/IP conversions.
+   */
+  async loadDevices() {
     state.value.loading = true
     state.value.error = null
 
     try {
       const RawDevices = await AdbService.getDevices()
       let savedDevices = await DatabaseService.getAllDevices()
+      console.log("%c savedDevices", 'background:rgb(0, 193, 236); color: #222')
+      console.log(await DatabaseService.getAllDevices())
 
-      
-      const devices : Device[] = [];
+
+      const devices: Device[] = [];
 
       savedDevices.forEach(device => {
         device.usbConnected = false
@@ -137,22 +139,24 @@ export const deviceStore = {
       //Si non, on ajoute le RawDevice à devices
       for (const rawDevice of RawDevices) {
 
-        if(rawDevice.status === 'unauthorized'){
+        if (rawDevice.status === 'unauthorized') {
           continue
         }
 
-        
-        let isTcpIp = rawDevice.id.includes(':')
+
         //format the device based on the connection type
-        let newDevice : Device
+        let isTcpIp = rawDevice.id.includes(':')
+        let newDevice: Device
         if (isTcpIp) {
           newDevice = await this.formatTCPdevice(rawDevice)
-        }else{
+        } else {
           newDevice = await this.formatUSBdevice(rawDevice)
         }
 
-        console.log("%c newDevice", 'background:rgb(0, 193, 236); color: #222')
-        console.log(newDevice)
+        //test battery level and screen size
+        if (newDevice.batteryLevel === undefined || newDevice.batteryLevel === -1 || newDevice.screenWidth === undefined || newDevice.screenHeight === undefined) {
+          continue
+        }
 
         //check if the device is already in the cache
         let savedDevice = savedDevices.find(d => d.ip === newDevice.ip)
@@ -174,45 +178,45 @@ export const deviceStore = {
               ...newDevice,
             }
             devices.splice(devices.indexOf(deviceWithSameIp), 1)
-            console.log("%c delete device with id " + deviceWithSameIp.id, 'background:rgb(0, 193, 236); color: #222')
-            
             await DatabaseService.deleteDevice(deviceWithSameIp.id)
           }
 
-          if(!isTcpIp){
+          if (!isTcpIp) {
             newDevice.previousId = newDevice.id
           }
+
+
+
           await DatabaseService.saveDevice(newDevice)
           devices.push(newDevice)
         }
       }
 
 
-      // for each device in USB and not in TCP, call the convertToTcpIp method
+      // For each device in USB and not in TCP, call the convertToTcpIp method
       for (const device of devices) {
         if (device.usbConnected && !device.tcpConnected) {
           await this.convertToTcpIp(device)
         }
       }
-      
+
+
+      //remove devices that are not in USB or TCP from this.selectedDevices
+      state.value.selectedDevices = state.value.selectedDevices.filter(device => devices.some(d => d.id === device))
 
       //Add remaining saved devices
       devices.push(...savedDevices)
-    
       state.value.devices = devices;
-      // devices.forEach(device => {
-      //   console.log(device)
-      // })
-      
+
     } catch (error) {
       state.value.error = `Error loading devices: ${error}`
     } finally {
       state.value.loading = false
     }
-    
+
   },
 
-  async convertToTcpIp(device: Device){
+  async convertToTcpIp(device: Device) {
     const result = await AdbService.convertUsbToTcpIp(device.id)
     if (result.success) {
       device.id = result.newId || device.id
@@ -221,11 +225,11 @@ export const deviceStore = {
       device.tcpConnected = true
       await DatabaseService.saveDevice(device)
     }
-    
+
   },
 
-  async formatUSBdevice(device: RawDevice){
-    let newDevice : Device = {
+  async formatUSBdevice(device: RawDevice) {
+    let newDevice: Device = {
       id: device.id,
       ip: device.ip,
       batteryLevel: undefined,
@@ -241,7 +245,7 @@ export const deviceStore = {
     const screenDimensions = await AdbService.getScreenDimensions(device.id)
     newDevice.screenWidth = screenDimensions.width
     newDevice.screenHeight = screenDimensions.height
-    
+
     //get battery level
     const batteryLevel = await AdbService.getBatteryLevel(device.id)
     newDevice.batteryLevel = batteryLevel
@@ -250,13 +254,13 @@ export const deviceStore = {
     newDevice.ip = ipAddress
 
     return newDevice
-    
-    
+
+
   },
 
 
-  async formatTCPdevice(device: RawDevice){
-    let newDevice : Device = {
+  async formatTCPdevice(device: RawDevice) {
+    let newDevice: Device = {
       id: device.id,
       ip: device.ip,
       batteryLevel: undefined,
@@ -271,7 +275,7 @@ export const deviceStore = {
     const screenDimensions = await AdbService.getScreenDimensions(device.id)
     newDevice.screenWidth = screenDimensions.width
     newDevice.screenHeight = screenDimensions.height
-    
+
     //get battery level
     const batteryLevel = await AdbService.getBatteryLevel(device.id)
     newDevice.batteryLevel = batteryLevel
@@ -279,7 +283,12 @@ export const deviceStore = {
     const ipAddress = await AdbService.getDeviceIpAddress(device.id)
     newDevice.ip = ipAddress
 
-    return newDevice    
+    if (newDevice.batteryLevel === undefined || newDevice.batteryLevel === -1) {
+      console.log("%c newDevice.batteryLevel", 'background:rgb(236, 0, 0); color: #222')
+      console.log(newDevice.batteryLevel)
+    }
+
+    return newDevice
   },
 
 
@@ -391,7 +400,7 @@ export const deviceStore = {
 
       // Remove from current state if it's not connected
       const index = state.value.devices.findIndex(d => d.id === deviceId)
-      if (index !== -1 ) {
+      if (index !== -1) {
         state.value.devices.splice(index, 1)
       }
     } catch (error) {

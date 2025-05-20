@@ -50,7 +50,7 @@ export class DatabaseService {
     await this.initDatabase()
     //this.clearDevices()
     
-    console.log("%c getAllDevices", 'background:rgb(0, 193, 236); color: #222')
+    // console.log("%c getAllDevices", 'background:rgb(0, 193, 236); color: #222')
     return new Promise((resolve, reject) => {
       if (!db) {
         reject(new Error('Database not initialized'))
@@ -76,6 +76,9 @@ export class DatabaseService {
    */
   static async saveDevice(device: Device): Promise<boolean> {
     await this.initDatabase()
+
+    console.log("%c saveDevice", 'background:rgb(255, 174, 0); color: #222')
+    console.log(device)
     
     return new Promise((resolve, reject) => {
       if (!db) {

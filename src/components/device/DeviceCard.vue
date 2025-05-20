@@ -2,15 +2,16 @@
   <v-card
     :class="{ 'selected-card': isSelected }"
     @click="toggleSelection"
+    :disabled="!device.tcpConnected && !device.usbConnected"
     variant="outlined"
     class="device-card mx-2 my-2 rounded-xl"
     
   >
     <v-card-item>
-      <v-card-title>{{ device.name || 'Unknown Device' }}</v-card-title>
+      <v-card-title>{{ device.name || device.model }}</v-card-title>
       <v-card-subtitle>{{ device.model || 'Unknown Model' }}</v-card-subtitle>
-      <v-card-subtitle>{{ device.ip || 'No IP Address' }}</v-card-subtitle>
-      <v-card-subtitle>{{ device.screenWidth+"x"+device.screenHeight || 'No Screen Size' }}</v-card-subtitle>
+      <v-card-subtitle class="text-caption">{{ device.ip || 'No IP Address' }}</v-card-subtitle>
+      <v-card-subtitle class="text-caption">{{ device.screenWidth+"x"+device.screenHeight || 'No Screen Size' }}</v-card-subtitle>
     </v-card-item>
 
     <v-card-text>
@@ -44,7 +45,7 @@
       </code> -->
 
       <!-- Battery Level -->
-      <div v-if="device.batteryLevel !== undefined" class="d-flex align-center mt-2 mb-1">
+      <div v-if="device.batteryLevel !== undefined && (device.tcpConnected || device.usbConnected)" class="d-flex align-center mt-2 mb-1">
         <v-icon 
           :color="batteryColor"
           size="small"

@@ -78,6 +78,7 @@ async function createWindow() {
     fullscreen: !VITE_DEV_SERVER_URL,
     minHeight:1080,
     minWidth:1920,
+    
     webPreferences: {
       preload,
       // We're using contextBridge for security
