@@ -1,86 +1,3 @@
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { deviceStore } from '../../store/deviceStore'
-import DeviceCard from './DeviceCard.vue'
-import { DatabaseService } from '../../services/DatabaseService'
-
-// State
-const isLoading = ref(false)
-const showAddDialog = ref(false)
-const newDeviceIp = ref('')
-const errorMessage = ref('')
-
-// Methods
-const loadDevices = async () => {
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    // Use the updated device store to load from database and ADB
-    await deviceStore.initialize()
-  } catch (error) {
-    console.error('Error loading devices:', error)
-    errorMessage.value = 'Failed to load devices. Please try again.'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const addDevice = async () => {
-  if (!newDeviceIp.value) {
-    errorMessage.value = 'Please enter an IP address'
-    return
-  }
-  
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    await deviceStore.connectDevice(newDeviceIp.value)
-    newDeviceIp.value = ''
-    showAddDialog.value = false
-  } catch (error) {
-    console.error('Error adding device:', error)
-    errorMessage.value = 'Failed to add device. Please check the IP address.'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const refreshDevices = async () => {
-  try {
-    isLoading.value = true
-    errorMessage.value = ''
-    
-    // Reload devices from ADB
-    await deviceStore.loadDevices()
-  } catch (error) {
-    console.error('Error refreshing devices:', error)
-    errorMessage.value = 'Failed to refresh devices'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Lifecycle hooks
-onMounted(async () => {
-  try {
-    // Initialize the device store (loads database and ADB devices)
-    await deviceStore.initialize()
-  } catch (error) {
-    console.error('Error initializing in DeviceGrid:', error)
-    errorMessage.value = 'Failed to initialize application'
-  }
-  
-  // Set up polling for status updates
-  setInterval(async () => {
-    if (deviceStore.devices.value.length > 0) {
-      await deviceStore.loadDevices() // Only refresh ADB devices, database is already loaded
-    }
-  }, 30000) // Update every 30 seconds
-})
-</script>
-
 <template>
   <div>
     <v-row class="my-2">
@@ -96,14 +13,6 @@ onMounted(async () => {
               :loading="isLoading"
             >
               Refresh
-            </v-btn>
-            <v-btn
-              color="success"
-              class="mx-1"
-              prepend-icon="mdi-plus"
-              @click="showAddDialog = true"
-            >
-              Add Device
             </v-btn>
           </div>
         </div>
@@ -159,15 +68,6 @@ onMounted(async () => {
             </div>
             <p v-else class="mt-2">No devices found. Connect a device or add one manually.</p>
           </v-card-text>
-          <v-card-actions class="justify-center">
-            <v-btn
-              color="primary"
-              variant="outlined"
-              @click="showAddDialog = true"
-            >
-              Add Device
-            </v-btn>
-          </v-card-actions>
         </v-card>
       </v-col>
     </v-row>
@@ -181,39 +81,70 @@ onMounted(async () => {
       />
     </v-row>
 
-    <!-- Add Device Dialog -->
-    <v-dialog v-model="showAddDialog" max-width="500">
-      <v-card>
-        <v-card-title>Add New Device</v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="newDeviceIp"
-            label="IP Address"
-            placeholder="192.168.1.100:5555"
-            hint="Format: IP:PORT (default port is 5555)"
-            :error-messages="errorMessage"
-            @keyup.enter="addDevice"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="grey-darken-1"
-            variant="text"
-            @click="showAddDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="text"
-            @click="addDevice"
-            :loading="isLoading"
-          >
-            Add
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+
   </div>
 </template>
+<script lang="ts">
+import { defineComponent, ref, onMounted } from 'vue';
+import { deviceStore } from '../../store/deviceStore';
+import DeviceCard from './DeviceCard.vue';
+
+export default defineComponent({
+  name: 'DeviceGrid',
+  components: {
+    DeviceCard
+  },
+  setup() {
+    // State
+    const isLoading = ref(false);
+    const errorMessage = ref('');
+
+    const refreshDevices = async () => {
+      try {
+        isLoading.value = true;
+        errorMessage.value = '';
+        await deviceStore.loadDevices();
+      } catch (error) {
+        console.error('Error refreshing devices:', error);
+        errorMessage.value = 'Failed to refresh devices';
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    // Lifecycle hooks
+    onMounted(async () => {
+      isLoading.value = true; 
+      errorMessage.value = '';
+      try {
+        await deviceStore.initialize();
+      } catch (error) {
+        console.error('Error initializing in DeviceGrid:', error);
+        errorMessage.value = 'Failed to initialize application';
+      } finally {
+        isLoading.value = false; 
+      }
+      
+      const pollInterval = setInterval(async () => {
+        if (deviceStore.devices.value.length > 0) {
+          await deviceStore.loadDevices();
+        }
+      }, 30000); 
+
+      // It's good practice to clear intervals when the component is unmounted
+      // import { onUnmounted } from 'vue';
+      // onUnmounted(() => {
+      //   clearInterval(pollInterval);
+      // });
+    });
+
+    return {
+      isLoading,
+      errorMessage,
+      deviceStore, 
+      refreshDevices
+    };
+  }
+});
+</script>
+

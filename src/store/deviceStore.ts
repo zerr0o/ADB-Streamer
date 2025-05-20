@@ -227,7 +227,7 @@ export const deviceStore = {
               const expectedTcpId = `${ipAddress}:5555`;
               const existingTcpDevice = this.findSavedDeviceByAnyId(expectedTcpId);
               
-              if (existingTcpDevice) {
+              if (existingTcpDevice && existingTcpDevice.tcpConnected) {
                 console.log(`We already have a device with TCP/IP ID ${expectedTcpId}, skipping conversion`);
 
                 

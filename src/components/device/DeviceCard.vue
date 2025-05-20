@@ -132,86 +132,100 @@
 
 
 
-<script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Device } from '../../types/device'
-import { deviceStore } from '../../store/deviceStore'
+<script lang="ts">
+import { defineComponent, ref, computed, PropType } from 'vue';
+import { Device } from '../../types/device';
+import { deviceStore } from '../../store/deviceStore';
 
-interface Props {
-  device: Device
-}
+export default defineComponent({
+  name: 'DeviceCard',
+  props: {
+    device: {
+      type: Object as PropType<Device>,
+      required: true
+    }
+  },
+  setup(props) {
+    // State
+    const isLoading = ref(false);
+    const showTcpIpDialog = ref(false);
+    const statusMessage = ref('');
+    const isSuccess = ref(false);
 
-const props = defineProps<Props>()
+    // Computed properties
+    const isSelected = computed(() => deviceStore.isDeviceSelected(props.device.id));
 
-// State
-const isLoading = ref(false)
-const showTcpIpDialog = ref(false)
-const statusMessage = ref('')
-const isSuccess = ref(false)
+    const batteryColor = computed(() => {
+      if (!props.device.batteryLevel) return 'grey';
+      if (props.device.batteryLevel > 50) return 'success';
+      if (props.device.batteryLevel > 20) return 'warning';
+      return 'error';
+    });
 
-// Computed properties
-const isSelected = computed(() => deviceStore.isDeviceSelected(props.device.id))
+    const showEnableTcpIpButton = computed(() => {
+      return props.device.usbConnected && !props.device.tcpConnected;
+    });
 
-const batteryColor = computed(() => {
-  if (!props.device.batteryLevel) return 'grey'
-  if (props.device.batteryLevel > 50) return 'success'
-  if (props.device.batteryLevel > 20) return 'warning'
-  return 'error'
-})
+    const enableTcpIpButtonText = computed(() => {
+      if (!props.device.isTcpIp) {
+        return 'Enable TCP/IP'; // Device is USB, never been TCP/IP or lost that specific record
+      } else if (props.device.usbConnected && !props.device.tcpConnected) {
+        return 'Reconnect TCP (USB)'; // Device is known TCP/IP, but currently only USB is active
+      }
+      return 'Enable TCP/IP'; // Fallback
+    });
 
-// Determine if the 'Enable TCP/IP' or 'Reconnect TCP (USB)' button should be shown
-const showEnableTcpIpButton = computed(() => {
-  return props.device.usbConnected && !props.device.tcpConnected;
+    // Methods
+    const toggleSelection = () => {
+      deviceStore.toggleDeviceSelection(props.device.id);
+    };
+
+    const disconnectDevice = async () => {
+      await deviceStore.disconnectDevice(props.device);
+    };
+
+    const connectDevice = async () => {
+      if (props.device.ip) {
+        await deviceStore.connectDevice(props.device.ip);
+      }
+    };
+
+    const convertToTcpIp = async () => {
+      if (!props.device.usbConnected) return;
+      
+      isLoading.value = true;
+      statusMessage.value = '';
+      isSuccess.value = false;
+      showTcpIpDialog.value = true;
+      
+      try {
+        const result = await deviceStore.convertDeviceToTcpIp(props.device.id);
+        statusMessage.value = result.message;
+        isSuccess.value = result.success;
+      } catch (error) {
+        statusMessage.value = `Error: ${error instanceof Error ? error.message : String(error)}`;
+        isSuccess.value = false;
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    return {
+      isLoading,
+      showTcpIpDialog,
+      statusMessage,
+      isSuccess,
+      isSelected,
+      batteryColor,
+      showEnableTcpIpButton,
+      enableTcpIpButtonText,
+      toggleSelection,
+      disconnectDevice,
+      connectDevice,
+      convertToTcpIp
+    };
+  }
 });
-
-const enableTcpIpButtonText = computed(() => {
-  if (!props.device.isTcpIp) {
-    return 'Enable TCP/IP'; // Device is USB, never been TCP/IP or lost that specific record
-  } else if (props.device.usbConnected && !props.device.tcpConnected) {
-    return 'Reconnect TCP (USB)'; // Device is known TCP/IP, but currently only USB is active
-  }
-  return 'Enable TCP/IP'; // Fallback
-});
-
-// Methods
-const toggleSelection = () => {
-  deviceStore.toggleDeviceSelection(props.device.id)
-}
-
-const disconnectDevice = async () => {
-  await deviceStore.disconnectDevice(props.device)
-}
-
-const connectDevice = async () => {
-  if (props.device.ip) {
-    await deviceStore.connectDevice(props.device.ip)
-  }
-}
-
-// Convert device from USB to TCP/IP mode
-const convertToTcpIp = async () => {
-  // Updated condition: Trigger if USB is connected, regardless of current TCP state for enabling/reconnecting
-  if (!props.device.usbConnected) return;
-  
-  isLoading.value = true
-  statusMessage.value = ''
-  isSuccess.value = false
-  showTcpIpDialog.value = true
-  
-  try {
-    // Call the deviceStore method to convert
-    const result = await deviceStore.convertDeviceToTcpIp(props.device.id)
-    
-    // Display the result
-    statusMessage.value = result.message
-    isSuccess.value = result.success
-  } catch (error) {
-    statusMessage.value = `Error: ${error instanceof Error ? error.message : String(error)}`
-    isSuccess.value = false
-  } finally {
-    isLoading.value = false
-  }
-}
 </script>
 
 
