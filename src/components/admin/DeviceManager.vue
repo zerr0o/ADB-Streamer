@@ -33,7 +33,8 @@
           <th>Serial</th>
           <th>Model</th>
           <th>IP Address</th>
-          <th>Status</th>
+          <th>USB</th>
+          <th>TCP</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -46,10 +47,19 @@
           <td>
             <v-chip
               size="small"
-              :color="device.status === 'connected' ? 'success' : 'error'"
-              :text-color="device.status === 'connected' ? 'white' : 'white'"
+              :color="device.usbConnected ? 'success' : 'error'"
+              :text-color="device.usbConnected ? 'white' : 'white'"
             >
-              {{ device.status }}
+              {{ device.usbConnected ? 'Connected' : 'Disconnected' }}
+            </v-chip>
+          </td>
+          <td>
+            <v-chip
+              size="small"
+              :color="device.tcpConnected ? 'success' : 'error'"
+              :text-color="device.tcpConnected ? 'white' : 'white'"
+            >
+              {{ device.tcpConnected ? 'Connected' : 'Disconnected' }}
             </v-chip>
           </td>
           <td>
@@ -124,7 +134,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { deviceStore } from '../../store/deviceStore'
-import { DatabaseService } from '../../services/DatabaseService'
 import { Device } from '../../types/device'
 
 // State
@@ -152,7 +161,7 @@ const loadSavedDevices = async () => {
 
 const editDevice = (device: Device) => {
   currentDevice.value = device
-  editedName.value = device.name
+  editedName.value = device.name || ''
   showEditDialog.value = true
 }
 

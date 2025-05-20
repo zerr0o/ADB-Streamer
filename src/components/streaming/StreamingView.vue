@@ -96,7 +96,7 @@
             :subtitle="device.ip || 'No IP'"
           >
             <template v-slot:prepend>
-              <v-icon :color="device.status === 'connected' ? 'success' : 'error'">
+              <v-icon :color="device.tcpConnected ? 'success' : 'error'">
                 mdi-cellphone-link
               </v-icon>
             </template>

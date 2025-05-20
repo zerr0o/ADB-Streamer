@@ -21,14 +21,12 @@ const createSerializableDevice = (device: Device): Device => {
     id: device.id,
     ip: device.ip || '',
     name: device.name || '',
-    status: device.status,
     isStreaming: device.isStreaming || false,
     previousId: device.previousId,
     batteryLevel: device.batteryLevel,
     model: device.model,
     screenWidth: device.screenWidth,
     screenHeight: device.screenHeight,
-    isTcpIp: device.isTcpIp,
     tcpConnected: device.tcpConnected,
     usbConnected: device.usbConnected
   }
@@ -112,217 +110,99 @@ export const deviceStore = {
 
 
 
-  /**
-   * @summary Updates a device object with details fetched from ADB, like battery level and screen dimensions.
-   * @param {Device} device - The device to update.
-   * @returns {Promise<Device>} The updated device.
-   * @private
-   */
-  async _updateAdbDeviceDetails(device: Device): Promise<Device> {
-    if (device.status === 'connected') {
-      // Battery level might have been fetched during TCP verification, but re-fetch if not or for USB.
-      if (typeof device.batteryLevel === 'undefined') {
-        device.batteryLevel = await AdbService.getBatteryLevel(device.id);
-      }
-      const screenDimensions = await AdbService.getScreenDimensions(device.id);
-      device.screenWidth = screenDimensions.width;
-      device.screenHeight = screenDimensions.height;
-    }
-    return device;
-  },
-
-  /**
-   * @summary Attempts to automatically convert a USB-connected device to TCP/IP mode.
-   * @param {Device} usbDevice - The USB device to attempt conversion on.
-   * @param {Device[]} allAdbDevices - List of all devices currently reported by ADB.
-   * @returns {Promise<{ finalDevice: Device; oldUsbIdToRemove?: string }>} Result of the conversion attempt.
-   * `finalDevice` is the device to be used (original USB or new/updated TCP/IP).
-   * `oldUsbIdToRemove` is populated if the USB device's entry should be removed from cache due to successful conversion to a new ID.
-   * @private
-   */
-  async _attemptUsbToTcpAutoConversion(usbDevice: Device, allAdbDevices: Device[]): Promise<{ finalDevice: Device; oldUsbIdToRemove?: string }> {
-    let finalDevice = { ...usbDevice }; // Work with a copy
-    let oldUsbIdToRemove: string | undefined = undefined;
-
-    const isUsbOnlyDevice = !finalDevice.ip && !finalDevice.id.includes(':');
-    if (isUsbOnlyDevice && finalDevice.status === 'connected') {
-      console.log(`USB device detected: ${finalDevice.id} - Attempting to convert to TCP/IP mode`);
-      const ipAddress = await AdbService.getDeviceIpAddress(finalDevice.id);
-
-      if (ipAddress) {
-        console.log(`Got IP address for ${finalDevice.id}: ${ipAddress}`);
-        const expectedTcpId = `${ipAddress}:5555`;
-
-        // Check if a TCP/IP device with this IP is already connected via ADB or saved and connected
-        const adbTcpDevice = allAdbDevices.find(d => d.id === expectedTcpId && d.tcpConnected);
-        const savedTcpDevice = this.findSavedDeviceByAnyId(expectedTcpId);
-
-        if (adbTcpDevice) {
-          console.log(`TCP/IP counterpart ${expectedTcpId} for USB ${finalDevice.id} is already connected via ADB. Prioritizing TCP/IP.`);
-          // The main loop will handle adbTcpDevice. This USB device might be skipped or handled based on usbToTcpMap.
-          // No conversion needed here, the TCP device takes precedence.
-        } else if (savedTcpDevice && savedTcpDevice.tcpConnected) {
-          console.log(`Saved TCP/IP device ${expectedTcpId} for USB ${finalDevice.id} is marked as connected. Skipping conversion.`);
-          if (savedTcpDevice.previousId !== finalDevice.id) {
-            console.log(`Updating relationship for ${finalDevice.id} to existing TCP ${savedTcpDevice.id}`);
-            savedTcpDevice.previousId = finalDevice.id;
-            savedDevicesCache.value.set(savedTcpDevice.id, savedTcpDevice);
-            await DatabaseService.saveDevice(createSerializableDevice(savedTcpDevice));
-          }
-          // Indicate that this USB device might be superseded by the existing active TCP device.
-          // The caller will decide based on usbToTcpMap whether to skip this USB device.
-        } else {
-          console.log(`No existing active TCP/IP device found for ${ipAddress}, proceeding with conversion attempt for ${finalDevice.id}`);
-          const result = await AdbService.convertUsbToTcpIp(finalDevice.id);
-          if (result.success && result.ipAddress && result.newId) {
-            console.log(`Successfully converted ${finalDevice.id} to TCP/IP mode at ${result.ipAddress} with new ID ${result.newId}`);
-
-            // Important: The device ID changes here.
-            oldUsbIdToRemove = result.oldId; // Mark original USB ID for potential cleanup
-
-            finalDevice.id = result.newId;
-            finalDevice.ip = result.ipAddress;
-            finalDevice.previousId = result.oldId; // Link back to original USB ID
-            finalDevice.isTcpIp = true;
-            finalDevice.tcpConnected = true; // Assuming successful conversion implies connection
-            finalDevice.usbConnected = false;
-
-            // Update name if it was default or based on old ID
-            if (!finalDevice.name || finalDevice.name === result.oldId || finalDevice.name.startsWith('Device ')) {
-              const nameParts = result.ipAddress.split('.');
-              finalDevice.name = nameParts[nameParts.length - 1];
-            }
-          } else {
-            console.warn(`Could not convert ${finalDevice.id} to TCP/IP mode automatically.`);
-          }
-        }
-      }
-    }
-    // Ensure IP is string | undefined
-    finalDevice.ip = finalDevice.ip ?? undefined;
-    return { finalDevice, oldUsbIdToRemove };
-  },
-
-  /**
-   * @summary Synchronizes a device with the persisted state in cache and database.
-   * Merges with existing saved data or saves as a new device. Manages `previousId` linkage.
-   * @param {Device} deviceToSync - The device data from ADB (potentially after TCP/IP conversion).
-   * @param {string} [originalAdbId] - The original ID from ADB if `deviceToSync.id` changed (e.g., after TCP/IP conversion).
-   * @returns {Promise<Device>} The synchronized device, updated with any persisted data.
-   * @private
-   */
-  async _synchronizeDeviceWithStorage(deviceToSync: Device, originalAdbId?: string): Promise<Device> {
-    const idToSearch = deviceToSync.id; // This is the current ID (could be new TCP/IP ID)
-    let finalDeviceState = { ...deviceToSync };
-
-    const savedDevice = this.findSavedDeviceByAnyId(idToSearch) || (originalAdbId ? this.findSavedDeviceByAnyId(originalAdbId) : undefined);
-
-    if (savedDevice) {
-      console.log(`Device ${idToSearch} (or original ${originalAdbId}) found in cache. Merging with ID ${savedDevice.id}.`);
-      // Merge: saved data (name, persisted ID) takes precedence, updated with current ADB status
-      finalDeviceState = {
-        ...savedDevice, // Start with persisted state (custom name, original ID, etc.)
-        ...deviceToSync, // Overlay with fresh ADB data (status, battery, new IP if converted)
-        id: savedDevice.id, // Ensure persisted ID is kept if different from deviceToSync.id (e.g. deviceToSync.id was temp USB id)
-        name: savedDevice.name || deviceToSync.name, // Persisted name is king
-      };
-
-      // If the ADB reported ID is different from the saved device's primary ID, AND
-      // it's not already tracked as previousId, update previousId.
-      if (originalAdbId && originalAdbId !== savedDevice.id && savedDevice.previousId !== originalAdbId) {
-        console.log(`Linking new previousId ${originalAdbId} to existing device ${savedDevice.id}`);
-        finalDeviceState.previousId = originalAdbId;
-        // Clean up any old cache entry for originalAdbId if it's not the primary ID
-        if (savedDevicesCache.value.has(originalAdbId) && originalAdbId !== savedDevice.id) {
-          await DatabaseService.deleteDevice(originalAdbId);
-          savedDevicesCache.value.delete(originalAdbId);
-        }
-      }
-    } else {
-      console.log(`New device ${idToSearch} discovered. Saving.`);
-      // This is a new device not found in cache by its current ID or original ADB ID.
-      // Assign a default name if needed.
-      if (!finalDeviceState.name || finalDeviceState.name === finalDeviceState.id) {
-        if (finalDeviceState.ip) {
-          const nameParts = finalDeviceState.ip.split('.');
-          finalDeviceState.name = nameParts[nameParts.length - 1];
-        } else {
-          finalDeviceState.name = `Device ${finalDeviceState.id.substring(0, 4)}`;
-        }
-      }
-    }
-
-    // Ensure connection flags are consistent
-    finalDeviceState.isTcpIp = finalDeviceState.id.includes(':') || !!finalDeviceState.ip;
-    if (finalDeviceState.status === 'connected') {
-      if (finalDeviceState.isTcpIp) finalDeviceState.tcpConnected = true;
-      else finalDeviceState.usbConnected = true;
-    } else {
-      finalDeviceState.tcpConnected = false;
-      finalDeviceState.usbConnected = false;
-    }
-
-    savedDevicesCache.value.set(finalDeviceState.id, finalDeviceState);
-    await DatabaseService.saveDevice(createSerializableDevice(finalDeviceState));
-    return finalDeviceState;
-  },
 
 
-
-
-  async SimpleLoadDevices(){
+/**
+ * @summary Loads devices from ADB, merges them with saved device information,
+ * handles device status updates, and manages USB to TCP/IP conversions.
+ */
+  async loadDevices(){
     state.value.loading = true
     state.value.error = null
 
     try {
       const RawDevices = await AdbService.getDevices()
       let savedDevices = await DatabaseService.getAllDevices()
-      //console.log(savedDevices)
+
+      
       const devices : Device[] = [];
 
+      savedDevices.forEach(device => {
+        device.usbConnected = false
+        device.tcpConnected = false
+      })
 
       //Pour chaque RawDevice, on vérifie si il existe dans savedDevices
       //Si oui, on ajoute le savedDevice à devices
       //Si non, on ajoute le RawDevice à devices
       for (const rawDevice of RawDevices) {
-        const savedDevice = savedDevices.find(d => d.previousId === rawDevice.id)
+
+        if(rawDevice.status === 'unauthorized'){
+          continue
+        }
+
+        
+        let isTcpIp = rawDevice.id.includes(':')
+        //format the device based on the connection type
+        let newDevice : Device
+        if (isTcpIp) {
+          newDevice = await this.formatTCPdevice(rawDevice)
+        }else{
+          newDevice = await this.formatUSBdevice(rawDevice)
+        }
+
+        console.log("%c newDevice", 'background:rgb(0, 193, 236); color: #222')
+        console.log(newDevice)
+
+        //check if the device is already in the cache
+        let savedDevice = savedDevices.find(d => d.ip === newDevice.ip)
         if (savedDevice) {
-
-          savedDevices.splice(savedDevices.indexOf(savedDevice), 1)
-          console.log("%c Device " + rawDevice.id + " found in the cache", 'background: #bada55; color: #222')
-          devices.push(savedDevice)
-        } else {
-
-          let newDevice : Device
-          if (rawDevice.id.includes(':')) {
-            newDevice = await this.formatTCPdevice(rawDevice)
-            
-            
-          }else{
-
-            newDevice = await this.formatUSBdevice(rawDevice)
-            
+          newDevice = {
+            ...savedDevice,
+            ...newDevice,
           }
+          devices.push(newDevice)
+          savedDevices.splice(savedDevices.indexOf(savedDevice), 1)
+        } else {
 
           //check if the device ip is the same as another device
           const deviceWithSameIp = devices.find(d => d.ip === newDevice.ip)
           if (deviceWithSameIp) {
-            console.log("%c Device " + newDevice.id + " has the same IP as " + deviceWithSameIp.id, 'background: #bada55; color: #222')
-            newDevice.previousId = deviceWithSameIp.id
+
+            newDevice = {
+              ...deviceWithSameIp,
+              ...newDevice,
+            }
             devices.splice(devices.indexOf(deviceWithSameIp), 1)
+            console.log("%c delete device with id " + deviceWithSameIp.id, 'background:rgb(0, 193, 236); color: #222')
+            
             await DatabaseService.deleteDevice(deviceWithSameIp.id)
           }
 
+          if(!isTcpIp){
+            newDevice.previousId = newDevice.id
+          }
           await DatabaseService.saveDevice(newDevice)
           devices.push(newDevice)
         }
       }
 
+
+      // for each device in USB and not in TCP, call the convertToTcpIp method
+      for (const device of devices) {
+        if (device.usbConnected && !device.tcpConnected) {
+          await this.convertToTcpIp(device)
+        }
+      }
+      
+
       //Add remaining saved devices
       devices.push(...savedDevices)
     
       state.value.devices = devices;
-      
+      // devices.forEach(device => {
+      //   console.log(device)
+      // })
       
     } catch (error) {
       state.value.error = `Error loading devices: ${error}`
@@ -332,16 +212,26 @@ export const deviceStore = {
     
   },
 
+  async convertToTcpIp(device: Device){
+    const result = await AdbService.convertUsbToTcpIp(device.id)
+    if (result.success) {
+      device.id = result.newId || device.id
+      device.ip = result.ipAddress || device.ip
+      device.usbConnected = false
+      device.tcpConnected = true
+      await DatabaseService.saveDevice(device)
+    }
+    
+  },
+
   async formatUSBdevice(device: RawDevice){
     let newDevice : Device = {
       id: device.id,
-      name: device.name,
       ip: device.ip,
       batteryLevel: undefined,
       model: device.model,
       screenWidth: undefined,
       screenHeight: undefined,
-      tcpConnected: false,
       usbConnected: true,
       isStreaming: false,
       previousId: device.id,
@@ -368,16 +258,13 @@ export const deviceStore = {
   async formatTCPdevice(device: RawDevice){
     let newDevice : Device = {
       id: device.id,
-      name: device.name,
       ip: device.ip,
       batteryLevel: undefined,
       model: device.model,
       screenWidth: undefined,
       screenHeight: undefined,
       tcpConnected: true,
-      usbConnected: false,
       isStreaming: false,
-      previousId: null,
     }
 
     //get screen dimensions
@@ -396,17 +283,6 @@ export const deviceStore = {
   },
 
 
-
-  /**
-   * @summary Loads devices from ADB, merges them with saved device information,
-   * handles device status updates, and manages USB to TCP/IP conversions.
-   */
-  async loadDevices() {
-
-    await this.SimpleLoadDevices()
-    return;
-
-  },
 
   // Connect to a device by IP
   async connectDevice(ipAddress: string) {
@@ -445,7 +321,6 @@ export const deviceStore = {
           // Update status locally
           const index = state.value.devices.findIndex(d => d.id === device.id)
           if (index !== -1) {
-            state.value.devices[index].status = 'disconnected'
             state.value.devices[index].batteryLevel = undefined
           }
 
@@ -457,7 +332,6 @@ export const deviceStore = {
             // If it wasn't saved before, save it now
             savedDevicesCache.value.set(device.id, {
               ...device,
-              status: 'disconnected',
               batteryLevel: undefined
             })
           } else {
@@ -465,7 +339,6 @@ export const deviceStore = {
             const savedDevice = savedDevicesCache.value.get(device.id)!
             const updatedDevice = {
               ...savedDevice,
-              status: 'disconnected',
               batteryLevel: undefined
             }
 
@@ -518,7 +391,7 @@ export const deviceStore = {
 
       // Remove from current state if it's not connected
       const index = state.value.devices.findIndex(d => d.id === deviceId)
-      if (index !== -1 && state.value.devices[index].status !== 'connected') {
+      if (index !== -1 ) {
         state.value.devices.splice(index, 1)
       }
     } catch (error) {
@@ -542,7 +415,7 @@ export const deviceStore = {
         }
 
         // Check if device is connected via USB
-        if (device.status !== 'connected') {
+        if (device.usbConnected !== true) {
           state.value.error = `Device ${device.name || deviceId} must be connected via USB to convert to TCP/IP mode`
           return {
             success: false,
@@ -589,7 +462,6 @@ export const deviceStore = {
             // Update the existing device with the USB ID relationship
             const updatedDevice: Device = {
               ...existingDevice,
-              status: 'connected',
               ip: result.ipAddress,
               model: device.model,
               previousId: deviceId
@@ -611,7 +483,6 @@ export const deviceStore = {
               previousId: deviceId, // Track the relationship
               name: deviceName,
               ip: result.ipAddress,
-              status: 'connected',
               batteryLevel: device.batteryLevel,
               model: device.model
 

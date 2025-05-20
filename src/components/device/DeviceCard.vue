@@ -39,9 +39,9 @@
       </div>
       
 
-      <code >
+      <!-- <code >
         {{device}}
-      </code>
+      </code> -->
 
       <!-- Battery Level -->
       <div v-if="device.batteryLevel !== undefined" class="d-flex align-center mt-2 mb-1">
@@ -139,53 +139,13 @@ export default defineComponent({
       return 'error';
     });
 
-    const showEnableTcpIpButton = computed(() => {
-      return props.device.usbConnected && !props.device.tcpConnected;
-    });
-
-    const enableTcpIpButtonText = computed(() => {
-      if (!props.device.isTcpIp) {
-        return 'Enable TCP/IP'; // Device is USB, never been TCP/IP or lost that specific record
-      } else if (props.device.usbConnected && !props.device.tcpConnected) {
-        return 'Reconnect TCP (USB)'; // Device is known TCP/IP, but currently only USB is active
-      }
-      return 'Enable TCP/IP'; // Fallback
-    });
 
     // Methods
     const toggleSelection = () => {
       deviceStore.toggleDeviceSelection(props.device.id);
     };
 
-    // const disconnectDevice = async () => {
-    //   await deviceStore.disconnectDevice(props.device);
-    // };
 
-    // const connectDevice = async () => {
-    //   if (props.device.ip) {
-    //     await deviceStore.connectDevice(props.device.ip);
-    //   }
-    // };
-
-    // const convertToTcpIp = async () => {
-    //   if (!props.device.usbConnected) return;
-      
-    //   isLoading.value = true;
-    //   statusMessage.value = '';
-    //   isSuccess.value = false;
-    //   showTcpIpDialog.value = true;
-      
-    //   try {
-    //     const result = await deviceStore.convertDeviceToTcpIp(props.device.id);
-    //     statusMessage.value = result.message;
-    //     isSuccess.value = result.success;
-    //   } catch (error) {
-    //     statusMessage.value = `Error: ${error instanceof Error ? error.message : String(error)}`;
-    //     isSuccess.value = false;
-    //   } finally {
-    //     isLoading.value = false;
-    //   }
-    // };
 
     return {
       isLoading,
@@ -194,12 +154,8 @@ export default defineComponent({
       isSuccess,
       isSelected,
       batteryColor,
-      showEnableTcpIpButton,
-      enableTcpIpButtonText,
       toggleSelection,
-      // disconnectDevice,
-      //connectDevice,
-      //convertToTcpIp
+
     };
   }
 });
