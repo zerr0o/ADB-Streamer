@@ -243,6 +243,7 @@ export const deviceStore = {
       ip: device.ip,
       usbConnected: true,
       model: device.model,
+      name: device.model,
     }
 
     //get screen dimensions
@@ -271,13 +272,14 @@ export const deviceStore = {
       tcpConnected: true,
       isStreaming: false,
       model: device.model,
+      name: device.model,
     }
 
 
     //get screen dimensions
     const screenDimensions = await AdbService.getScreenDimensions(device.id)
     newDevice.screenWidth = screenDimensions.width
-    newDevice.screenHeight = screenDimensions.height
+    newDevice.screenHeight =  screenDimensions.height
 
     //get battery level
     const batteryLevel = await AdbService.getBatteryLevel(device.id)
@@ -550,7 +552,8 @@ export const deviceStore = {
       }
 
       deviceToUpdate.name = newName
-      await DatabaseService.saveDevice(deviceToUpdate)  
+      const serializableDevice = createSerializableDevice(deviceToUpdate)
+      await DatabaseService.saveDevice(serializableDevice)  
 
     } catch (error) {
       console.error(`Error updating device name for ${deviceId}:`, error);

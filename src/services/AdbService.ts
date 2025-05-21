@@ -103,6 +103,19 @@ export class AdbService {
       return ''
     }
   }
+
+
+  /**
+   * Reboot a device
+   */
+  static async rebootDevice(deviceId: string): Promise<boolean> {
+    try {
+      return await ipcRenderer.invoke('adb:reboot', deviceId)
+    } catch (error) {
+      console.error(`Failed to reboot device ${deviceId}:`, error)
+      return false
+    }
+  }
   
   /**
    * Convert USB device to TCP/IP mode and auto-connect

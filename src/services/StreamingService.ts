@@ -55,9 +55,21 @@ export class StreamingService {
   }
 
 
-  static calculateOptimalCrop(screenWidth : number, screenHeight : number) {
-    // Basé sur l'exemple: pour 3664x1920 → 1600:900:2017:510
-    
+  static calculateOptimalCrop(device : Device) {
+
+    const screenWidth = device.screenWidth;
+    const screenHeight = device.screenHeight;
+
+    if(screenWidth === undefined || screenHeight === undefined) {
+      console.error("Screen width or height is undefined");
+      return "";
+    }
+
+    if(device?.model === "G3") {
+      return `${screenWidth}:${screenHeight/2}:${0}:${screenHeight/2}`; 
+    }
+
+    // Basé sur l'exemple: pour 3664x1920 → 1600:900:2017:510  
     // Calculer les ratios par rapport à la résolution d'exemple
     const widthRatio = screenWidth / 3664;
     const heightRatio = screenHeight / 1920;
@@ -75,6 +87,7 @@ export class StreamingService {
     console.log(`Screen: ${screenWidth}x${screenHeight}`);
     console.log(`Optimal crop: ${cropWidth}:${cropHeight}:${cropX}:${cropY}`);
     return `${cropWidth}:${cropHeight}:${cropX}:${cropY}`;
+
   }
   
   /**
@@ -125,9 +138,9 @@ export class StreamingService {
           title: `Device ${deviceId}`,
           noBorder: true,
           alwaysOnTop: true,
-          noControl: deviceIds.length > 1, // Disable control in mosaic mode (except for single device)
+          //noControl: deviceIds.length > 1, // Disable control in mosaic mode (except for single device)
           maxSize: 0, // No limit for multi-screen,
-          crop: device ? this.calculateOptimalCrop(device.screenWidth as number, device.screenHeight as number) : `${screenDimensions.width}:${screenDimensions.height}:0:0`
+          crop: device && device.screenWidth && device.screenHeight ? this.calculateOptimalCrop(device) : `${screenDimensions.width}:${screenDimensions.height}:0:0`
         };
         const result = await this.startDeviceStream(device?.tcpId as string, options); // TODO Pas ouf le as string
         if (result) anyStarted = true;

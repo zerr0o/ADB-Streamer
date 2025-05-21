@@ -40,9 +40,9 @@
       </div>
       
 
-      <code >
+      <!-- <code >
         {{device}}
-      </code>
+      </code> -->
 
       <!-- Battery Level -->
       <div v-if="device.batteryLevel !== undefined && (device.tcpConnected || device.usbConnected)" class="d-flex align-center mt-2 mb-1">
@@ -66,45 +66,30 @@
         <span class="text-caption">Battery Level Unknown</span>
       </div>
     </v-card-text>
-    
-    <!-- TCP/IP Conversion Dialog -->
-    <v-dialog v-model="showTcpIpDialog" max-width="400">
+
+    <v-card-actions>
+      <v-btn block color="red" class="mb-2 rounded-xl" variant="elevated"  @click.stop="showRebootDialog = true">
+        <v-icon start icon="mdi-restart"></v-icon>
+        Reboot
+      </v-btn>
+    </v-card-actions>
+
+    <!-- Reboot Dialog -->
+     <v-dialog v-model="showRebootDialog" max-width="400">
       <v-card>
-        <v-card-title>Convert to TCP/IP</v-card-title>
-        
+        <v-card-title>Reboot Device</v-card-title>
         <v-card-text>
-          <v-alert
-            v-if="statusMessage"
-            :type="isSuccess ? 'success' : 'error'"
-            variant="tonal"
-            class="mb-3"
-          >
-            {{ statusMessage }}
-          </v-alert>
-          
-          <div v-if="isLoading" class="text-center py-3">
-            <v-progress-circular indeterminate />
-            <p class="mt-2">Converting device to TCP/IP mode...</p>
-          </div>
-          
-          <p v-else-if="!statusMessage">
-            Converting this device from USB to TCP/IP mode will allow you to 
-            connect wirelessly after unplugging the USB cable.
-          </p>
+          Are you sure you want to reboot this device?
         </v-card-text>
-        
         <v-card-actions>
           <v-spacer />
-          <v-btn
-            color="primary"
-            variant="text"
-            @click="showTcpIpDialog = false"
-          >
-            Close
-          </v-btn>
+          <v-btn color="primary" variant="text" @click="showRebootDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="text" @click="rebootDevice(device)">Reboot</v-btn>
         </v-card-actions>
       </v-card>
-    </v-dialog>
+     </v-dialog>
+    
+
   </v-card>
 </template>
 
@@ -114,6 +99,7 @@
 import { defineComponent, ref, computed, PropType } from 'vue';
 import { Device } from '../../types/device';
 import { deviceStore } from '../../store/deviceStore';
+import { AdbService } from '../../services/AdbService';
 
 export default defineComponent({
   name: 'DeviceCard',
@@ -126,7 +112,7 @@ export default defineComponent({
   setup(props) {
     // State
     const isLoading = ref(false);
-    const showTcpIpDialog = ref(false);
+    const showRebootDialog = ref(false);
     const statusMessage = ref('');
     const isSuccess = ref(false);
 
@@ -146,16 +132,32 @@ export default defineComponent({
       deviceStore.toggleDeviceSelection(props.device.id);
     };
 
+    const rebootDevice = (device: Device) => {
+
+      if(!device.usbId || !device.tcpId){
+        console.error('Device ID not found')
+        return
+      }
+
+      if(device.usbConnected){
+        AdbService.rebootDevice(device.usbId)
+      }
+      if(device.tcpConnected){
+        AdbService.rebootDevice(device.tcpId)
+      }
+      showRebootDialog.value = false;
+    };
 
 
     return {
       isLoading,
-      showTcpIpDialog,
+      showRebootDialog,
       statusMessage,
       isSuccess,
       isSelected,
       batteryColor,
       toggleSelection,
+      rebootDevice,
 
     };
   }

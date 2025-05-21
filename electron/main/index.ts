@@ -182,7 +182,7 @@ function parseDeviceList(output: string): RawDevice[] {
       id,
       ip,
       name,
-      status: status === 'device' ? 'authorized' : 'unauthorized',
+      status: status === 'device' ? 'authorized' : status,
       model : model.replace('model:', '').replace('_', '')
     })
   }
@@ -441,6 +441,23 @@ ipcMain.handle('adb:get-ip-address', async (_, deviceId: string) => {
   
   return await getDeviceIpAddress(deviceId)
 })
+
+
+// Reboot a device
+ipcMain.handle('adb:reboot', async (_, deviceId: string) => {
+  if (!checkAdbInstalled()) {
+    return false
+  }
+  
+  try {
+    const { stdout } = await execAsync(`"${ADB_PATH}" -s ${deviceId} reboot`)
+    return stdout.includes('rebooting')
+  } catch (error) {
+    console.error(`Error rebooting device ${deviceId}:`, error)
+    return false
+  }
+})
+
 
 // Convert USB device to TCP/IP and connect
 ipcMain.handle('adb:usb-to-tcpip', async (_, deviceId: string) => {
