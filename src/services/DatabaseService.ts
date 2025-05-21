@@ -76,9 +76,6 @@ export class DatabaseService {
    */
   static async saveDevice(device: Device): Promise<boolean> {
     await this.initDatabase()
-
-    console.log("%c saveDevice", 'background:rgb(255, 174, 0); color: #222')
-    console.log(device)
     
     return new Promise((resolve, reject) => {
       if (!db) {

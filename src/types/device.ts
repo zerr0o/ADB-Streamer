@@ -1,7 +1,8 @@
 export interface Device {
   id: string;          // Unique identifier/serial number or IP:port
   usbId?: string | null; // USB ID of the device (optional, e.g., for USB-only before IP discovery)
-  previousId?: string | null; // Previous USB ID when converted to TCP/IP
+  tcpId?: string | null; // TCP ID of the device (optional, e.g., for TCP-only before USB discovery)
+  //previousId?: string | null; // Previous USB ID when converted to TCP/IP
   ip?: string | null;         // IP address of the device (optional, e.g., for USB-only before IP discovery)
   name?: string | undefined;        // Display name (last segment of IP)
   batteryLevel?: number | undefined; // Current battery level (0-100)

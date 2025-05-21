@@ -264,19 +264,19 @@ const startStreaming = async () => {
   errorMessage.value = ''
   
   try {
-    // Get the selected device IDs
-    const deviceIds = selectedDevices.value.map(device => device.id)
-    
+    // Get the selected device tcpId if it is connected if they are not null and not undefined
+    const tcpIds = selectedDevices.value.map(device => device.tcpId).filter(id => id !== null && id !== undefined)
+    console.log("tcpIds", tcpIds)
     // Update screen dimensions
     getScreenDimensions()
     
     // Initialiser le statut de streaming pour chaque appareil
-    deviceIds.forEach(id => {
-      deviceStreamingStatus.value[id] = false
+    tcpIds.forEach(tcpId => {
+      deviceStreamingStatus.value[tcpId] = false
     })
     
     // Start streaming
-    const success = await StreamingService.startMosaicStreaming(deviceIds, screenDimensions.value, (positions) => {
+    const success = await StreamingService.startMosaicStreaming(tcpIds, screenDimensions.value, (positions) => {
       // Stocker les positions des cellules pour l'overlay
       cellPositions.value = positions
     })
@@ -284,8 +284,8 @@ const startStreaming = async () => {
     if (success) {
       isStreaming.value = true
       // Mettre à jour le statut de streaming pour chaque appareil
-      deviceIds.forEach(id => {
-        deviceStreamingStatus.value[id] = true
+      tcpIds.forEach(tcpId => {
+        deviceStreamingStatus.value[tcpId] = true
       })
     } else {
       errorMessage.value = 'Failed to start streaming'
@@ -307,8 +307,8 @@ const stopStreaming = async () => {
     await StreamingService.stopAllStreams()
     isStreaming.value = false
     // Réinitialiser le statut de streaming pour tous les appareils
-    Object.keys(deviceStreamingStatus.value).forEach(id => {
-      deviceStreamingStatus.value[id] = false
+    Object.keys(deviceStreamingStatus.value).forEach(tcpId => {
+      deviceStreamingStatus.value[tcpId] = false
     })
   } catch (error) {
     console.error('Error stopping streaming:', error)
@@ -330,29 +330,29 @@ const handleResize = () => {
 }
 
 // Méthode pour redémarrer un stream spécifique
-const restartDeviceStream = async (deviceId: string, index: number) => {
+const restartDeviceStream = async (tcpId: string, index: number) => {
   if (index >= cellPositions.value.length) return;
   try {
     // Mettre à jour le statut de streaming
-    deviceStreamingStatus.value[deviceId] = false;
+    deviceStreamingStatus.value[tcpId] = false;
     
     // Arrêter le stream existant pour cet appareil
-    await StreamingService.stopDeviceStream(deviceId);
+    await StreamingService.stopDeviceStream(tcpId);
     
     // Récupérer la position de la cellule
     const cell = cellPositions.value[index];
     
     // Trouver l'appareil
-    const device = selectedDevices.value.find(d => d.id === deviceId);
+  const device = selectedDevices.value.find(d => d.id ===tcpId);
     
     if (device) {
       // Redémarrer le stream avec les mêmes options
-      const success = await StreamingService.startDeviceStream(deviceId, {
+      const success = await StreamingService.startDeviceStream(tcpId, {
         x: cell.x,
         y: cell.y,
         width: cell.width,
         height: cell.height,
-        title: `Device ${deviceId}`,
+        title: `Device ${tcpId}`,
         noBorder: true,
         alwaysOnTop: true,
         noControl: selectedDevices.value.length > 1,
@@ -363,11 +363,11 @@ const restartDeviceStream = async (deviceId: string, index: number) => {
       });
       
       // Mettre à jour le statut de streaming
-      deviceStreamingStatus.value[deviceId] = success;
+      deviceStreamingStatus.value[tcpId] = success;
     }
   } catch (error) {
-    console.error(`Error restarting stream for device ${deviceId}:`, error);
-    errorMessage.value = `Error restarting stream for device ${deviceId}`;
+    console.error(`Error restarting stream for device ${tcpId}:`, error);
+    errorMessage.value = `Error restarting stream for device ${tcpId}`;
   }
 }
 

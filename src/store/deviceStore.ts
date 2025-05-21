@@ -22,7 +22,6 @@ const createSerializableDevice = (device: Device): Device => {
     ip: device.ip || '',
     name: device.name || '',
     isStreaming: device.isStreaming || false,
-    previousId: device.previousId,
     batteryLevel: device.batteryLevel,
     model: device.model,
     screenWidth: device.screenWidth,
@@ -52,7 +51,7 @@ export const deviceStore = {
     if (directMatch) return directMatch
 
     // Then check for devices where this ID is the previous ID (USB-to-TCP/IP conversion)
-    return state.value.devices.find(device => device.previousId === id)
+    return state.value.devices.find(device => device.id === id)
   },
 
   // Find a device in the saved devices cache by any ID
@@ -64,7 +63,7 @@ export const deviceStore = {
 
     // Check for previous ID match
     for (const device of savedDevicesCache.value.values()) {
-      if (device.previousId === id) {
+      if (device.id === id) {
         return device
       }
     }
@@ -181,11 +180,6 @@ export const deviceStore = {
             await DatabaseService.deleteDevice(deviceWithSameId.id)
           }
 
-          if (!isTcpIp) {
-            newDevice.previousId = newDevice.id
-          }
-
-
 
           await DatabaseService.saveDevice(newDevice)
           devices.push(newDevice)
@@ -234,13 +228,8 @@ export const deviceStore = {
       id: await AdbService.getSerialNumber(device.id),
       usbId: device.id,
       ip: device.ip,
-      batteryLevel: undefined,
-      model: device.model,
-      screenWidth: undefined,
-      screenHeight: undefined,
       usbConnected: true,
-      isStreaming: false,
-      previousId: device.id,
+      model: device.model,
     }
 
     //get screen dimensions
@@ -264,13 +253,11 @@ export const deviceStore = {
   async formatTCPdevice(device: RawDevice) {
     let newDevice: Device = {
       id: await AdbService.getSerialNumber(device.id),
+      tcpId: device.id,
       ip: device.ip,
-      batteryLevel: undefined,
-      model: device.model,
-      screenWidth: undefined,
-      screenHeight: undefined,
       tcpConnected: true,
       isStreaming: false,
+      model: device.model,
     }
 
 
@@ -476,7 +463,6 @@ export const deviceStore = {
               ...existingDevice,
               ip: result.ipAddress,
               model: device.model,
-              previousId: deviceId
             }
 
             // Update in cache and database
@@ -492,7 +478,6 @@ export const deviceStore = {
             // Create a new device with the TCP/IP ID
             const tcpDevice: Device = {
               id: result.newId,
-              previousId: deviceId, // Track the relationship
               name: deviceName,
               ip: result.ipAddress,
               batteryLevel: device.batteryLevel,
@@ -544,33 +529,16 @@ export const deviceStore = {
   // Update the name of a device
   async updateDeviceName(deviceId: string, newName: string): Promise<void> {
     try {
-      let deviceToUpdate: Device | undefined = this.getDeviceById(deviceId); // Check live devices first
-
-      if (deviceToUpdate) {
-        deviceToUpdate.name = newName; // Update live device state
+      const deviceToUpdate = this.getDeviceById(deviceId)
+      if (!deviceToUpdate) {
+        console.warn(`Device not found for name update: ${deviceId}`)
+        state.value.error = `Device ${deviceId} not found for name update.`
+        return
       }
 
-      // Check cache separately, as device might be disconnected but known
-      const cachedDevice = savedDevicesCache.value.get(deviceId);
-      if (cachedDevice) {
-        cachedDevice.name = newName;
-        deviceToUpdate = cachedDevice; // Ensure deviceToUpdate points to the (potentially cached-only) device
-      }
+      deviceToUpdate.name = newName
+      await DatabaseService.saveDevice(deviceToUpdate)  
 
-      if (deviceToUpdate) {
-        const serializableDevice = createSerializableDevice(deviceToUpdate);
-        serializableDevice.name = newName; // Ensure name is correct on the copy
-
-        await DatabaseService.saveDevice(serializableDevice);
-
-        // Update the cache with the fully updated serializable device to ensure consistency
-        savedDevicesCache.value.set(deviceId, serializableDevice);
-
-        console.log(`Device name updated for ${deviceId} to ${newName} and saved.`);
-      } else {
-        console.warn(`Device not found for name update: ${deviceId}`);
-        state.value.error = `Device ${deviceId} not found for name update.`;
-      }
     } catch (error) {
       console.error(`Error updating device name for ${deviceId}:`, error);
       state.value.error = `Failed to update device name: ${error instanceof Error ? error.message : String(error)}`;
@@ -624,7 +592,6 @@ export const deviceStore = {
         const newTcpDeviceData: Device = {
           ...createSerializableDevice(sourceDeviceData),
           id: newTcpDeviceId,
-          previousId: usbDeviceId,
           ip: newIpAddress,
           name: sourceDeviceData.name,
           usbConnected: false,

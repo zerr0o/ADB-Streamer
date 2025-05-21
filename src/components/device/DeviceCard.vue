@@ -40,9 +40,9 @@
       </div>
       
 
-      <!-- <code >
+      <code >
         {{device}}
-      </code> -->
+      </code>
 
       <!-- Battery Level -->
       <div v-if="device.batteryLevel !== undefined && (device.tcpConnected || device.usbConnected)" class="d-flex align-center mt-2 mb-1">
