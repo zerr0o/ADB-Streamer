@@ -4,7 +4,7 @@
     <v-app-bar>
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
       <v-app-bar-title class="text-uppercase">
-        ADB Management Interface
+        ADB Streamer
       </v-app-bar-title>
       <v-spacer></v-spacer>
       
@@ -21,13 +21,16 @@
       
       <!-- Future: Stream button will be enabled when functionality is implemented -->
       <v-btn
-        :disabled="deviceStore.selectedDevices.value.length === 0"
-        color="success"
-        prepend-icon="mdi-cast"
-        variant="outlined"
-        @click="setView('streaming')"
+        :disabled="currentView === 'devices' && deviceStore.selectedDevices.value.length === 0"
+        color="green"
+        width="300"
+        class="mr-5 ml-5"
+        variant="elevated"
+        @click=" currentView === 'devices' ? setView('streaming') : setView('devices')"
       >
-        Stream
+        <v-icon v-if="currentView === 'streaming'" start icon="mdi-virtual-reality"></v-icon>
+        <v-icon v-else start icon="mdi-cast"></v-icon>
+        {{ currentView === 'streaming' ? 'Go to Devices View' : 'Go to Streaming View' }}
       </v-btn>
     </v-app-bar>
 
@@ -67,14 +70,17 @@
         <div class="pa-2">
           <v-btn
             block
-            prepend-icon="mdi-github"
+            append-icon="mdi-wrench"
             variant="tonal"
             color="grey"
             href="https://docs.google.com/document/d/1AV3D0fRl9Zzo5ZYlD_8oDttCqM2L3TX34vh-72rlazs/edit?usp=sharing"
             target="_blank"
           >
-            Notice
+          Notice
           </v-btn>
+          <p class="mt-2 text-grey">
+            {{ version }}
+          </p>
         </div>
       </template>
     </v-navigation-drawer>
@@ -133,6 +139,8 @@ const drawer = ref(false)
 const currentView = ref('devices')
 const isLoading = ref(true)
 const initError = ref<string | null>(null)
+const version = ref(process.env.VITE_APP_VERSION)
+
 
 // Navigation items
 const navItems = [
@@ -158,6 +166,8 @@ const clearSelectedDevices = () => {
 
 // Initialize the application
 onMounted(async () => {
+
+
   try {
     isLoading.value = true
     

@@ -358,7 +358,7 @@ const restartDeviceStream = async (deviceId: string, index: number) => {
         noControl: selectedDevices.value.length > 1,
         maxSize: 0,
         crop: device.screenWidth && device.screenHeight ? 
-          StreamingService.calculateOptimalCrop(device.screenWidth, device.screenHeight) : 
+          StreamingService.calculateOptimalCrop(device) : 
           `${screenDimensions.value.width}:${screenDimensions.value.height}:0:0`
       });
       

@@ -37,6 +37,7 @@ process.env.APP_ROOT = path.join(__dirname, '../..')
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')  
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
+export const APP_VERSION = process.env.APP_VERSION
 
 app.commandLine.appendSwitch('high-dpi-support', '1')
 app.commandLine.appendSwitch('force-device-scale-factor', '1')

@@ -154,16 +154,6 @@ export const deviceStore = {
           newDevice = await this.formatUSBdevice(rawDevice)
         }
 
-        if(newDevice.id.includes(':')) {
-          console.warn("newDevice id contains ':' " + newDevice.id)
-          let savedDevice = savedDevices.find(d => d.id === newDevice.id)
-          if(savedDevice) {
-            await DatabaseService.deleteDevice(savedDevice.id)
-            savedDevices.splice(savedDevices.indexOf(savedDevice), 1)
-          }
-          continue
-        }
-
 
         //test battery level and screen size
         if (newDevice.batteryLevel === undefined || newDevice.batteryLevel === -1 || newDevice.screenWidth === undefined || newDevice.screenHeight === undefined) {
@@ -227,12 +217,13 @@ export const deviceStore = {
     if (!device.usbId) return
     const result = await AdbService.convertUsbToTcpIp(device.usbId)
     if (result.success) {
-      device.id = result.newId || device.id
       device.ip = result.ipAddress || device.ip
-      device.usbConnected = false
       device.tcpConnected = true
       await DatabaseService.saveDevice(device)
+    }else{
+      console.error("Failed to convert device to TCP IP")
     }
+
 
   },
 
@@ -266,7 +257,7 @@ export const deviceStore = {
 
   async formatTCPdevice(device: RawDevice) {
     let newDevice: Device = {
-      id: await AdbService.getSerialNumber(device.id),
+      id: "Unknown",
       tcpId: device.id,
       ip: device.ip,
       tcpConnected: true,
@@ -275,6 +266,8 @@ export const deviceStore = {
       name: device.model,
     }
 
+    
+    newDevice.id = await AdbService.getSerialNumber(device.id)
 
     //get screen dimensions
     const screenDimensions = await AdbService.getScreenDimensions(device.id)
@@ -288,12 +281,15 @@ export const deviceStore = {
     const ipAddress = await AdbService.getDeviceIpAddress(device.id)
     newDevice.ip = ipAddress
 
+    
+
     if (newDevice.batteryLevel === undefined || newDevice.batteryLevel === -1) {
       console.log("%c newDevice.batteryLevel", 'background:rgb(236, 0, 0); color: #222')
       console.log(newDevice.batteryLevel)
     }
 
     return newDevice
+
   },
 
 

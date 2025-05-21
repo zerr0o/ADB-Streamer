@@ -130,7 +130,7 @@ export default defineComponent({
         if (deviceStore.devices.value.length > 0) {
           await deviceStore.loadDevices();
         }
-      }, 30000); 
+      }, 10000); 
 
       // It's good practice to clear intervals when the component is unmounted
       // import { onUnmounted } from 'vue';

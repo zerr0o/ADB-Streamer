@@ -77,6 +77,9 @@ export class DatabaseService {
   static async saveDevice(device: Device): Promise<boolean> {
     await this.initDatabase()
     
+    // console.error("%c saveDevice", 'background:rgb(0, 193, 236); color: #222')
+    // console.log(device)
+
     return new Promise((resolve, reject) => {
       if (!db) {
         reject(new Error('Database not initialized'))
