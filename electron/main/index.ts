@@ -75,9 +75,10 @@ const indexHtml = path.join(RENDERER_DIST, 'index.html')
 
 async function createWindow() {
   win = new BrowserWindow({
-    title: 'STMB Streaming interface',
+    title: 'STMB ADB Streaming interface',
     autoHideMenuBar: true,
     fullscreen: !VITE_DEV_SERVER_URL,
+    alwaysOnTop: true,
     minHeight:1080,
     minWidth:1920,   
     webPreferences: {

@@ -234,7 +234,6 @@ export const deviceStore = {
       ip: device.ip,
       usbConnected: true,
       model: device.model,
-      name: device.model,
     }
 
     //get screen dimensions
@@ -263,7 +262,6 @@ export const deviceStore = {
       tcpConnected: true,
       isStreaming: false,
       model: device.model,
-      name: device.model,
     }
 
     

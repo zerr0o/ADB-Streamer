@@ -41,9 +41,12 @@
           <th>Serial</th>
           <th>Model</th>
           <th>IP Address</th>
+          <th>USB ID</th>
+          <th>TCP ID</th>
           <th>USB</th>
           <th>TCP</th>
-          <th>Actions</th>
+          <th>rename</th>
+          <th>remove</th>
         </tr>
       </thead>
       <tbody>
@@ -52,6 +55,8 @@
           <td>{{ device.id }}</td>
           <td>{{ device.model || 'Unknown' }}</td>
           <td>{{ device.ip || 'N/A' }}</td>
+          <td>{{ device.usbId || 'N/A' }}</td>
+          <td>{{ device.tcpId || 'N/A' }}</td>
           <td>
             <v-chip
               size="small"
@@ -80,6 +85,8 @@
             >
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
+            </td>
+            <td>
             <v-btn
               icon
               variant="text"
