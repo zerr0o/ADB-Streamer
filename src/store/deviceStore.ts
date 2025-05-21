@@ -122,10 +122,6 @@ export const deviceStore = {
     try {
       const RawDevices = await AdbService.getDevices()
       let savedDevices = await DatabaseService.getAllDevices()
-      console.log("%c savedDevices", 'background:rgb(0, 193, 236); color: #222')
-      console.log(await DatabaseService.getAllDevices())
-
-
       const devices: Device[] = [];
 
       savedDevices.forEach(device => {
@@ -139,6 +135,12 @@ export const deviceStore = {
       for (const rawDevice of RawDevices) {
 
         if (rawDevice.status === 'unauthorized') {
+          console.log("Unauthorized device: " + rawDevice.id)
+          continue
+        }
+
+        if (rawDevice.status === 'offline') {
+          console.log("Offline device: " + rawDevice.id)
           continue
         }
 
@@ -151,6 +153,17 @@ export const deviceStore = {
         } else {
           newDevice = await this.formatUSBdevice(rawDevice)
         }
+
+        if(newDevice.id.includes(':')) {
+          console.warn("newDevice id contains ':' " + newDevice.id)
+          let savedDevice = savedDevices.find(d => d.id === newDevice.id)
+          if(savedDevice) {
+            await DatabaseService.deleteDevice(savedDevice.id)
+            savedDevices.splice(savedDevices.indexOf(savedDevice), 1)
+          }
+          continue
+        }
+
 
         //test battery level and screen size
         if (newDevice.batteryLevel === undefined || newDevice.batteryLevel === -1 || newDevice.screenWidth === undefined || newDevice.screenHeight === undefined) {
@@ -543,6 +556,7 @@ export const deviceStore = {
       console.error(`Error updating device name for ${deviceId}:`, error);
       state.value.error = `Failed to update device name: ${error instanceof Error ? error.message : String(error)}`;
     }
+
   },
 
   // Convert a USB device to TCP/IP mode

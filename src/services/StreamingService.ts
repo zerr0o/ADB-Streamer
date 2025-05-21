@@ -129,7 +129,7 @@ export class StreamingService {
           maxSize: 0, // No limit for multi-screen,
           crop: device ? this.calculateOptimalCrop(device.screenWidth as number, device.screenHeight as number) : `${screenDimensions.width}:${screenDimensions.height}:0:0`
         };
-        const result = await this.startDeviceStream(deviceId, options);
+        const result = await this.startDeviceStream(device?.tcpId as string, options); // TODO Pas ouf le as string
         if (result) anyStarted = true;
         // Add a delay between launches to avoid resource conflicts
         await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay

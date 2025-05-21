@@ -22,7 +22,7 @@ export interface RawDevice {
   id: string;
   ip: string | null;
   name: string;
-  status: 'authorized' | 'unauthorized';
+  status: string;
   model: string;
 }
 

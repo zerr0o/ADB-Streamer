@@ -5,6 +5,14 @@
         <div class="d-flex justify-space-between align-center">
           <h2 class="text-h5">Device Management</h2>
           <v-btn
+            color="red"
+            prepend-icon="mdi-delete"
+            @click="clearDatabase"
+            :loading="isLoading"
+          >
+            Clear Database
+          </v-btn>
+          <v-btn
             color="primary"
             prepend-icon="mdi-refresh"
             @click="loadSavedDevices"
@@ -135,6 +143,7 @@
 import { onMounted, ref } from 'vue'
 import { deviceStore } from '../../store/deviceStore'
 import { Device } from '../../types/device'
+import { DatabaseService } from '../../services/DatabaseService'
 
 // State
 const isLoading = ref(false)
@@ -151,6 +160,23 @@ const loadSavedDevices = async () => {
   try {
     // Reinitialize the device store - this loads from database and ADB
     await deviceStore.initialize()
+  } catch (error) {
+    console.error('Error loading saved devices:', error)
+    errorMessage.value = 'Failed to load saved devices'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+
+const clearDatabase = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+  
+  try {
+    // Reinitialize the device store - this loads from database and ADB
+    await DatabaseService.clearDevices()
+    await loadSavedDevices()
   } catch (error) {
     console.error('Error loading saved devices:', error)
     errorMessage.value = 'Failed to load saved devices'
