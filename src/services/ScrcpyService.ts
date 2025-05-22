@@ -6,7 +6,16 @@
 // Use window.ipcRenderer from the context bridge
 const ipcRenderer = window.ipcRenderer
 
+// Flag to track when ADB cleanup is in progress
+let isCleanupInProgress = false
+
 export class ScrcpyService {
+  /**
+   * Check if ADB cleanup is currently in progress
+   */
+  static isCleanupInProgress(): boolean {
+    return isCleanupInProgress
+  }
   /**
    * Start streaming for a specific device
    */
@@ -24,8 +33,15 @@ export class ScrcpyService {
    */
   static async stopStream(deviceId: string): Promise<boolean> {
     try {
-      return await ipcRenderer.invoke('scrcpy:stop-stream', deviceId)
+      isCleanupInProgress = true
+      const result = await ipcRenderer.invoke('scrcpy:stop-stream', deviceId)
+      // Wait a bit longer than the backend cleanup delay to ensure processes are killed
+      setTimeout(() => {
+        isCleanupInProgress = false
+      }, 2500)
+      return result
     } catch (error) {
+      isCleanupInProgress = false
       console.error(`Failed to stop stream for device ${deviceId}:`, error)
       return false
     }
@@ -36,8 +52,15 @@ export class ScrcpyService {
    */
   static async stopAllStreams(): Promise<boolean> {
     try {
-      return await ipcRenderer.invoke('scrcpy:stop-all-streams')
+      isCleanupInProgress = true
+      const result = await ipcRenderer.invoke('scrcpy:stop-all-streams')
+      // Wait a bit longer than the backend cleanup delay to ensure processes are killed
+      setTimeout(() => {
+        isCleanupInProgress = false
+      }, 2500)
+      return result
     } catch (error) {
+      isCleanupInProgress = false
       console.error('Failed to stop all streams:', error)
       return false
     }

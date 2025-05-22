@@ -206,7 +206,7 @@ export function optionsToArgs(options: StreamOptions, deviceId?: string): string
     args.push('--crop', options.crop);
   }
   if (options.noControl) {
-    args.push('--no-control --no-audio --no-key-repeat --no-mouse-hover');
+    args.push('--no-control');
   }
   if ((options as any).displayId !== undefined) {
     args.push('--display', String((options as any).displayId));

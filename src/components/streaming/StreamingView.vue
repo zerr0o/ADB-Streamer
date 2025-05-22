@@ -13,6 +13,7 @@
             color="primary"
             size="x-large"
             class="rounded-xl"
+            :disabled="isLoading || isCleanupInProgress"
             @click="restartDeviceStream(device.id, index)"
           >
             <v-icon icon="mdi-refresh" size="large" start />
@@ -31,6 +32,8 @@
           width="100%"
           class="text-h4"
           size="large"
+          :loading="isLoading || isCleanupInProgress"
+          :disabled="isCleanupInProgress"
           prepend-icon="mdi-stop"
           @click="stopStreaming"
         >
@@ -47,7 +50,7 @@
               v-if="!isStreaming"
               color="primary"
               :loading="isLoading"
-              :disabled="noDevicesSelected || !isScrcpyAvailable"
+              :disabled="noDevicesSelected || !isScrcpyAvailable || isCleanupInProgress"
               prepend-icon="mdi-play"
               @click="startStreaming"
               class="mr-2"
@@ -57,7 +60,8 @@
             <v-btn
               v-else
               color="error"
-              :loading="isLoading"
+              :loading="isLoading || isCleanupInProgress"
+              :disabled="isCleanupInProgress"
               prepend-icon="mdi-stop"
               @click="stopStreaming"
               class="mr-2"
@@ -146,7 +150,7 @@
         <v-btn
           color="primary"
           :loading="isLoading"
-          :disabled="!isScrcpyAvailable"
+          :disabled="!isScrcpyAvailable || isCleanupInProgress"
           prepend-icon="mdi-play"
           @click="startStreaming"
         >
@@ -177,7 +181,8 @@
         <v-spacer />
         <v-btn
           color="error"
-          :loading="isLoading"
+          :loading="isLoading || isCleanupInProgress"
+          :disabled="isCleanupInProgress"
           prepend-icon="mdi-stop"
           @click="stopStreaming"
         >
@@ -190,8 +195,9 @@
 
 <script setup lang="ts">
 //TODO ; régler le Probleme des ip vs ID
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { StreamingService, ScreenDimensions } from '../../services/StreamingService'
+import { ScrcpyService } from '../../services/ScrcpyService'
 import { deviceStore } from '../../store/deviceStore'
 
 // State
@@ -199,6 +205,7 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const isScrcpyAvailable = ref(false)
 const isStreaming = ref(false)
+const isCleanupInProgress = ref(false)
 const screenDimensions = ref<ScreenDimensions>({ width: 0, height: 0 })
 const deviceStreamingStatus = ref<Record<string, boolean>>({})
 const cellPositions = ref<Array<{ x: number, y: number, width: number, height: number }>>([])
@@ -208,6 +215,11 @@ const selectedDevices = computed(() => {
   return deviceStore.state.value.devices
     .filter(device => deviceStore.selectedDevices.value.includes(device.id))
 })
+
+// Watcher pour vérifier l'état du nettoyage des processus ADB
+setInterval(() => {
+  isCleanupInProgress.value = ScrcpyService.isCleanupInProgress()
+}, 100)
 
 const noDevicesSelected = computed(() => selectedDevices.value.length === 0)
 
@@ -332,7 +344,12 @@ const handleResize = () => {
 // Méthode pour redémarrer un stream spécifique
 const restartDeviceStream = async (deviceId: string, index: number) => {
   if (index >= cellPositions.value.length) return;
+  if (isCleanupInProgress.value) {
+    console.log('Cleanup in progress, cannot restart stream');
+    return;
+  }
   try {
+    isLoading.value = true;
     // Mettre à jour le statut de streaming
     deviceStreamingStatus.value[deviceId] = false;
     
@@ -345,9 +362,9 @@ const restartDeviceStream = async (deviceId: string, index: number) => {
     // Trouver l'appareil
     const device = selectedDevices.value.find(d => d.id === deviceId);
     
-    if (device) {
+    if (device && device.tcpId) {
       // Redémarrer le stream avec les mêmes options
-      const success = await StreamingService.startDeviceStream(deviceId, {
+      const success = await StreamingService.startDeviceStream(device.tcpId, {
         x: cell.x,
         y: cell.y,
         width: cell.width,
@@ -355,7 +372,7 @@ const restartDeviceStream = async (deviceId: string, index: number) => {
         title: `Device ${deviceId}`,
         noBorder: true,
         alwaysOnTop: true,
-        noControl: selectedDevices.value.length > 1,
+        //noControl: selectedDevices.value.length > 1,
         maxSize: 0,
         crop: device.screenWidth && device.screenHeight ? 
           StreamingService.calculateOptimalCrop(device) : 
@@ -368,6 +385,8 @@ const restartDeviceStream = async (deviceId: string, index: number) => {
   } catch (error) {
     console.error(`Error restarting stream for device ${deviceId}:`, error);
     errorMessage.value = `Error restarting stream for device ${deviceId}`;
+  } finally {
+    isLoading.value = false;
   }
 }
 
