@@ -1,4 +1,5 @@
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, exec } from 'child_process';
+import * as util from 'util';
 import path from 'node:path';
 import { StreamOptions } from '../../src/services/ScrcpyService';
 
@@ -11,8 +12,147 @@ function getScrcpyPath(): string {
   return path.join(vitePublic, 'scrcpy', process.platform === 'win32' ? 'scrcpy.exe' : 'scrcpy');
 }
 
-// Store active scrcpy processes
-const activeStreams = new Map<string, ChildProcess>();
+// Store active scrcpy processes and manage ADB processes
+class ScrcpyManager {
+  private activeStreams = new Map<string, ChildProcess>();
+  private mainAdbServerPid: number | null = null;
+  private execPromise = util.promisify(exec);
+  private isCleanupInProgress = false;
+
+  // Get all running ADB process PIDs
+  async getAdbPids(): Promise<Set<number>> {
+    try {
+      const { stdout } = await this.execPromise('tasklist /fi "imagename eq adb.exe" /fo csv');
+      const pids = new Set<number>();
+      
+      // Parse CSV output, skip header row
+      const lines = stdout.split('\n').filter(line => line.trim().length > 0);
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',');
+        if (parts.length >= 2) {
+          // PID is the second column, remove quotes
+          const pid = parseInt(parts[1].replace(/"/g, '').trim(), 10);
+          if (!isNaN(pid)) {
+            pids.add(pid);
+          }
+        }
+      }
+      return pids;
+    } catch (error) {
+      console.error('[ScrcpyManager] Error getting ADB PIDs:', error);
+      return new Set<number>();
+    }
+  }
+  
+  // Identify the main ADB server PID before any streams are started
+  // We consider the main ADB server to be the one running before we start any streams
+  async identifyMainAdbServer(): Promise<void> {
+    try {
+      // If we already identified the main server, don't do it again
+      if (this.mainAdbServerPid !== null) {
+        console.log(`[ScrcpyManager] Main ADB server already identified with PID: ${this.mainAdbServerPid}`);
+        return;
+      }
+      
+      const pids = await this.getAdbPids();
+      if (pids.size > 0) {
+        // In most cases, there should be only one ADB server running
+        // If there are multiple, we'll take the one with the lowest PID
+        this.mainAdbServerPid = Math.min(...Array.from(pids));
+        console.log(`[ScrcpyManager] Identified main ADB server with PID: ${this.mainAdbServerPid}`);
+      } else {
+        console.log('[ScrcpyManager] No ADB processes found before starting stream');
+      }
+    } catch (error) {
+      console.error('[ScrcpyManager] Error identifying main ADB server:', error);
+    }
+  }
+
+  // Kill all ADB processes except the main server
+  async cleanupAdbProcesses(): Promise<void> {
+    // Prevent concurrent cleanups
+    if (this.isCleanupInProgress) {
+      console.log('[ScrcpyManager] Cleanup already in progress, skipping...');
+      return;
+    }
+
+    this.isCleanupInProgress = true;
+    
+    try {
+      // Ensure we have identified the main ADB server
+      if (this.mainAdbServerPid === null) {
+        console.log('[ScrcpyManager] Main ADB server not identified, attempting to identify...');
+        await this.identifyMainAdbServer();
+      }
+      
+      // Get all current ADB processes
+      const currentPids = await this.getAdbPids();
+      const pidsToKill: number[] = [];
+      
+      // Find all PIDs except the main server
+      currentPids.forEach(pid => {
+        if (pid !== this.mainAdbServerPid) {
+          pidsToKill.push(pid);
+        }
+      });
+      
+      if (pidsToKill.length > 0) {
+        console.log(`[ScrcpyManager] Cleaning up ${pidsToKill.length} ADB processes:`, pidsToKill);
+        console.log('[ScrcpyManager] Protecting main ADB server with PID:', this.mainAdbServerPid);
+        
+        for (const pid of pidsToKill) {
+          try {
+            await this.execPromise(`taskkill /PID ${pid} /F`);
+            console.log(`[ScrcpyManager] Successfully killed process with PID: ${pid}`);
+          } catch (killError) {
+            console.error(`[ScrcpyManager] Failed to kill process with PID ${pid}:`, killError);
+          }
+        }
+      } else {
+        console.log('[ScrcpyManager] No additional ADB processes to clean up');
+      }
+    } catch (error) {
+      console.error('[ScrcpyManager] Error cleaning up ADB processes:', error);
+    } finally {
+      this.isCleanupInProgress = false;
+    }
+  }
+
+  // Store a new active stream
+  setActiveStream(deviceId: string, process: ChildProcess): void {
+    this.activeStreams.set(deviceId, process);
+  }
+
+  // Check if a stream is active
+  hasActiveStream(deviceId: string): boolean {
+    return this.activeStreams.has(deviceId);
+  }
+
+  // Get an active stream
+  getActiveStream(deviceId: string): ChildProcess | undefined {
+    return this.activeStreams.get(deviceId);
+  }
+
+  // Delete an active stream
+  deleteActiveStream(deviceId: string): void {
+    this.activeStreams.delete(deviceId);
+  }
+
+  // Identify the main ADB server before starting any streams
+  async initializeAdbTracking(): Promise<void> {
+    // Identify the main ADB server
+    await this.identifyMainAdbServer();
+    console.log('[ScrcpyManager] Main ADB server PID (protected):', this.mainAdbServerPid);
+  }
+
+  // Get all active device IDs
+  getAllActiveDeviceIds(): string[] {
+    return Array.from(this.activeStreams.keys());
+  }
+}
+
+// Create a singleton instance
+const scrcpyManager = new ScrcpyManager();
 
 // Check if scrcpy is available
 export async function isScrcpyInstalled(): Promise<boolean> {
@@ -66,7 +206,7 @@ export function optionsToArgs(options: StreamOptions, deviceId?: string): string
     args.push('--crop', options.crop);
   }
   if (options.noControl) {
-    args.push('--no-control');
+    args.push('--no-control --no-audio --no-key-repeat --no-mouse-hover');
   }
   if ((options as any).displayId !== undefined) {
     args.push('--display', String((options as any).displayId));
@@ -78,17 +218,35 @@ export function optionsToArgs(options: StreamOptions, deviceId?: string): string
 
 // Start a scrcpy stream for a device
 export async function startStream(deviceId: string, options: StreamOptions): Promise<boolean> {
-  if (activeStreams.has(deviceId)) {
+  if (scrcpyManager.hasActiveStream(deviceId)) {
     return false;
   }
+  
+  // Identify the main ADB server if we haven't already
+  await scrcpyManager.initializeAdbTracking();
+  
+  // Short delay to ensure ADB server is ready
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
   const args = optionsToArgs(options, deviceId);
   try {
     console.log(`[scrcpy] Command: ${getScrcpyPath()} ${args.join(' ')}`);
     const proc = spawn(getScrcpyPath(), args, { stdio: 'ignore' });
-    activeStreams.set(deviceId, proc);
-    proc.on('exit', () => {
-      activeStreams.delete(deviceId);
+    scrcpyManager.setActiveStream(deviceId, proc);
+    
+    proc.on('exit', async () => {
+      scrcpyManager.deleteActiveStream(deviceId);
+      
+      // Only clean up ADB processes if this was the last active stream
+      if (scrcpyManager.getAllActiveDeviceIds().length === 0) {
+        // Wait a moment before cleaning up to ensure all child processes have properly exited
+        setTimeout(async () => {
+          console.log('[scrcpy] Last stream closed, cleaning up ADB processes...');
+          await scrcpyManager.cleanupAdbProcesses();
+        }, 2000);
+      }
     });
+    
     return true;
   } catch (e) {
     console.error('[scrcpy] Failed to start:', e);
@@ -98,13 +256,22 @@ export async function startStream(deviceId: string, options: StreamOptions): Pro
 
 // Stop a scrcpy stream for a device
 export async function stopStream(deviceId: string): Promise<boolean> {
-  const proc = activeStreams.get(deviceId);
+  const proc = scrcpyManager.getActiveStream(deviceId);
   if (!proc) return false;
+  
   try {
     proc.kill();
-    activeStreams.delete(deviceId);
+    scrcpyManager.deleteActiveStream(deviceId);
+    
+    // Wait a moment before cleaning up
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Clean up orphaned ADB processes
+    await scrcpyManager.cleanupAdbProcesses();
+    
     return true;
-  } catch {
+  } catch (error) {
+    console.error('[scrcpy] Failed to stop stream:', error);
     return false;
   }
 }
@@ -112,13 +279,28 @@ export async function stopStream(deviceId: string): Promise<boolean> {
 // Stop all scrcpy streams
 export async function stopAllStreams(): Promise<boolean> {
   let stopped = true;
-  for (const [deviceId, proc] of activeStreams.entries()) {
+  const activeDeviceIds = scrcpyManager.getAllActiveDeviceIds();
+  
+  for (const deviceId of activeDeviceIds) {
     try {
-      proc.kill();
-      activeStreams.delete(deviceId);
-    } catch {
+      const success = await stopStream(deviceId);
+      if (!success) {
+        stopped = false;
+      }
+    } catch (error) {
+      console.error(`[scrcpy] Error stopping stream for device ${deviceId}:`, error);
       stopped = false;
     }
   }
+  
+  // Only if all streams were stopped, clean up ADB processes
+  if (stopped && scrcpyManager.getAllActiveDeviceIds().length === 0) {
+    // Wait a moment before cleaning up
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log('[scrcpy] All streams stopped, cleaning up ADB processes...');
+    await scrcpyManager.cleanupAdbProcesses();
+  }
+  
   return stopped;
 }
