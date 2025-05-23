@@ -208,6 +208,9 @@ export function optionsToArgs(options: StreamOptions, deviceId?: string): string
   if (options.noControl) {
     args.push('--no-control');
   }
+  if (!options.withAudio) {
+    args.push('--no-audio');
+  }
   if ((options as any).displayId !== undefined) {
     args.push('--display', String((options as any).displayId));
   }

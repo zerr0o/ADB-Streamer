@@ -108,5 +108,6 @@ export interface StreamOptions {
   noBorder?: boolean   // No window border
   maxFps?: string      // Maximum frame rate
   noControl?: boolean  // Disable device control
+  withAudio?: boolean    // Disable sound
   displayId?: number   // Display ID for multi-display devices
 }

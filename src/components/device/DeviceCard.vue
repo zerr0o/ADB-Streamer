@@ -1,6 +1,6 @@
 <template>
   <v-card :class="{ 'selected-card': isSelected }" @click="toggleSelection"
-    :disabled="!device.tcpConnected || !device.tcpId || (howManySelected > 3 && !isSelected)" variant="outlined"
+    :disabled="!device.tcpConnected || !device.tcpId" variant="outlined"
     class="device-card mx-2 my-2 rounded-xl">
     <v-card-item>
       <v-card-title>{{ device.name || device.model }}</v-card-title>
