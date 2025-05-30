@@ -15,6 +15,24 @@ export interface ScreenDimensions {
 }
 
 export class StreamingService {
+
+  // Default bitrate for streams (2 Mbps)
+  static defaultBitRate = 2000000;
+
+  /**
+   * Set the default bitrate for new streams
+   */
+  static setDefaultBitRate(bitRate: number): void {
+    this.defaultBitRate = bitRate;
+  }
+
+  /**
+   * Get the default bitrate
+   */
+  static getDefaultBitRate(): number {
+    return this.defaultBitRate;
+  }
+
   /**
    * Start streaming a single device
    */
@@ -95,11 +113,13 @@ export class StreamingService {
    * @param deviceIds IDs of the devices to stream
    * @param screenDimensions Screen dimensions
    * @param onCellsCalculated Optional callback to get the calculated cell positions
+   * @param bitRate Bitrate for streaming (optional, defaults to defaultBitRate)
    */
   static async startMosaicStreaming(
     deviceIds: string[], 
     screenDimensions: ScreenDimensions, 
-    onCellsCalculated?: (cells: Array<{ x: number, y: number, width: number, height: number }>) => void
+    onCellsCalculated?: (cells: Array<{ x: number, y: number, width: number, height: number }>) => void,
+    bitRate?: number
   ): Promise<boolean> {
     if (deviceIds.length === 0) {
       console.warn('No devices selected for mosaic streaming')
@@ -138,6 +158,7 @@ export class StreamingService {
           title: `Device ${deviceId}`,
           noBorder: true,
           alwaysOnTop: true,
+          bitrate: bitRate || this.defaultBitRate,
           //noControl: deviceIds.length > 1, // Disable control in mosaic mode (except for single device)
           maxSize: 0, // No limit for multi-screen,
           crop: device && device.screenWidth && device.screenHeight ? this.calculateOptimalCrop(device) : `${screenDimensions.width}:${screenDimensions.height}:0:0`

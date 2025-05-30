@@ -9,6 +9,9 @@
           class="streaming-cell"
           :style="getCellStyle(index)"
         >
+
+          
+
           <v-btn
             color="primary"
             size="x-large"
@@ -45,8 +48,40 @@
       <v-col>
         <div class="d-flex justify-space-between align-center">
           <h2 class="text-h5">Device Streaming</h2>
+
+                    <!-- Bitrate Slider -->
+        <div class="d-flex flex-row " >
+          
+          <v-slider
+          style="min-width: 850px;"
+            v-model="bitRate"
+            :min="250000"
+            :max="10000000"
+            :step="250000"
+            show-ticks="always"
+            tick-size="4"
+            color="primary"
+            track-color="grey"
+            :label="'Bitrate : '+ `${(bitRate / 1000000).toFixed(2)} Mbps`"
+            class="mx-4"
+            hide-details
+            
+          >
+
+          </v-slider>          
+          <!-- Save as default button -->
+          <v-btn
+            :disabled="bitRate === StreamingService.getDefaultBitRate()"
+            size="small"
+            color="secondary"
+            @click="saveAsDefaultBitrate"
+          >
+            Save as default
+          </v-btn>
+        </div>
+
           <div class="d-flex">
-            <v-btn
+            <!-- <v-btn
               v-if="!isStreaming"
               color="primary"
               :loading="isLoading"
@@ -67,7 +102,7 @@
               class="mr-2"
             >
               Stop Streaming
-            </v-btn>
+            </v-btn> -->
             <v-chip v-if="!noDevicesSelected" color="info">
               {{ selectedDevices.length }} device{{ selectedDevices.length !== 1 ? 's' : '' }} selected
             </v-chip>
@@ -144,8 +179,9 @@
             </template>
           </v-list-item>
         </v-list>
-      </v-card-text>
-      <v-card-actions>
+      </v-card-text>      <v-card-actions>
+
+
         <v-spacer />
         <v-btn
           color="primary"
@@ -164,10 +200,10 @@
       v-else
       variant="outlined"
       class="my-4"
-    >
-      <v-card-title>
+    >      <v-card-title>
         Streaming Active
         <v-chip color="success" class="ml-2">{{ gridSize }} grid</v-chip>
+        <v-chip color="info" class="ml-2">{{ formatBitrate(bitRate) }}</v-chip>
       </v-card-title>
       <v-card-text class="text-center py-4">
         <p class="text-body-1">
@@ -210,6 +246,7 @@ const screenDimensions = ref<ScreenDimensions>({ width: 0, height: 0 })
 const deviceStreamingStatus = ref<Record<string, boolean>>({})
 const cellPositions = ref<Array<{ x: number, y: number, width: number, height: number }>>([])
 
+
 // Computed
 const selectedDevices = computed(() => {
   return deviceStore.state.value.devices
@@ -233,6 +270,21 @@ const gridSize = computed(() => {
   if (numDevices <= 12) return '3x4'
   return '4x4'
 })
+
+
+// Bitrate for streaming
+const bitRate = ref(StreamingService.defaultBitRate)
+
+// Helper function to format bitrate for display
+const formatBitrate = (bitrate: number): string => {
+  return `${(bitrate / 1000000).toFixed(1)} Mbps`
+}
+
+// Save current bitrate as default
+const saveAsDefaultBitrate = () => {
+  StreamingService.setDefaultBitRate(bitRate.value)
+  
+}
 
 // Methods
 const checkScrcpyAvailability = async () => {
@@ -286,12 +338,11 @@ const startStreaming = async () => {
     deviceIds.forEach(id => {
       deviceStreamingStatus.value[id] = false
     })
-    
-    // Start streaming
+      // Start streaming
     const success = await StreamingService.startMosaicStreaming(deviceIds, screenDimensions.value, (positions) => {
       // Stocker les positions des cellules pour l'overlay
       cellPositions.value = positions
-    })
+    }, bitRate.value)
     
     if (success) {
       isStreaming.value = true
@@ -364,14 +415,14 @@ const restartDeviceStream = async (deviceId: string, index: number) => {
     
     if (device && device.tcpId) {
       // Redémarrer le stream avec les mêmes options
-      const success = await StreamingService.startDeviceStream(device.tcpId, {
-        x: cell.x,
+      const success = await StreamingService.startDeviceStream(device.tcpId, {        x: cell.x,
         y: cell.y,
         width: cell.width,
         height: cell.height,
         title: `Device ${deviceId}`,
         noBorder: true,
         alwaysOnTop: true,
+        bitrate: bitRate.value,
         //noControl: selectedDevices.value.length > 1,
         maxSize: 0,
         crop: device.screenWidth && device.screenHeight ? 

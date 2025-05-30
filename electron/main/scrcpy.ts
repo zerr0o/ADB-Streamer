@@ -197,7 +197,7 @@ export function optionsToArgs(options: StreamOptions, deviceId?: string): string
     args.push('--max-size', String(options.maxSize));
   }
   if (options.bitrate) {
-    args.push('--video-bit-rate', String(options.bitrate) + 'K');
+    args.push('--video-bit-rate', String(options.bitrate));
   }
   if ((options as any).frameRate) {
     args.push('--max-fps', String((options as any).frameRate));
